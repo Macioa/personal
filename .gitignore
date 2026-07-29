@@ -3,4 +3,6 @@ Thumbs.db
 *.tmp
 .env
 .env.*
-temp/
+temp/**
+!temp/job_posts/
+!temp/job_posts/.gitkeep
