@@ -2,15 +2,15 @@
 
 > AVOID HALLUCINATIONS, GUESSWORK, PARAPHRASING
 > USE DIRECTLY QUOTED INFORMATION IN ALL TASKS
+> REVIEW ATOMIC.MD FOR OPERATIONAL INSTRUCTIONS
 
-Using the following tools:
+Inputs:
+- Job preferences
+- Job board list in this document
+- Application history
+- Email history
 
-- Job Preferences (through supabase mcp - personal info)
-- The Job board list in this document
-- Application history (through supabase mcp)
-- Email history (through gmail through composio mcp)
-
-1. Look for the top 25 job postings given the job preferences. Always prioritize recent listings.
+1. EasyPlaywrightMCP - Look for the top 25 job postings given the job preferences. Always prioritize recent listings.
 
 2. For each selected job, research the company, and create a 1 page md in `temp/job_posts`. At the top use a grid with short details:
    - job link

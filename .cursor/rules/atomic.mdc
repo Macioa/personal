@@ -1,0 +1,23 @@
+---
+description: Atomic operational instructions and anti-hallucination rules
+alwaysApply: true
+---
+
+# Atomic
+
+> AVOID HALLUCINATIONS, GUESSWORK, PARAPHRASING
+> USE DIRECTLY QUOTED INFORMATION IN ALL TASKS
+> REVIEW ATOMIC.MD FOR OPERATIONAL INSTRUCTIONS
+> Do not share private or inappropriate information.
+
+## Web browsing
+
+**All web browsing and web recordings use EasyPlaywrightMCP.** No exceptions unless it fails.
+
+## Other tasks
+
+1. Email → Composio → Gmail
+2. Calendar → Composio → Google Calendar
+3. Personal information and job preferences → Supabase MCP
+   - Schema: `supabase/migrations/`
+   - Table: `personal_info_and_docs`

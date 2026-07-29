@@ -1,5 +1,9 @@
 # PR Triage
 
+> AVOID HALLUCINATIONS, GUESSWORK, PARAPHRASING
+> USE DIRECTLY QUOTED INFORMATION IN ALL TASKS
+> REVIEW ATOMIC.MD FOR OPERATIONAL INSTRUCTIONS
+
 Drive a feature branch to merge-ready. Use the `gh` CLI for all git/GitHub management. **Never merge** — stop at merge-ready.
 
 ## Steps

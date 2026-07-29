@@ -1,18 +1,18 @@
 # Email Prep
 
-1. Before performing these actions connect to my supabase project with the supabase mcp, and examine my available personal info.
-2. Then scan any documents provided in the info folder.
+> AVOID HALLUCINATIONS, GUESSWORK, PARAPHRASING
+> USE DIRECTLY QUOTED INFORMATION IN ALL TASKS
+> REVIEW ATOMIC.MD FOR OPERATIONAL INSTRUCTIONS
+> Do not share private or inappropriate information.
 
-> Use this information to avoid hallucinations and mistakes. Nothing should be assumed or hallucinated. Do not share private or inappropriate information.
+1. Load personal info and scan the `info` folder.
 
-Check my unread mail and folder structure in Gmail using Composio and perform the following actions based on the content:
+2. Check unread mail and folder structure. For each message:
+   - If it requires action or attention (needs reply, needs process, event invites, etc...) create a unique md in `temp/mail`.
+     - Direct and short.
+     - Summary + proposed action (draft reply — if personal info is needed and missing, use `[INSERT X INFO HERE]`).
+   - If it does not require action (rejection, notification, old OTP, ads, etc...) move it OUT OF THE INBOX into the appropriate folder.
+     - If no appropriate folder exists, add an md to `temp/mail` with an action to create one and why.
 
-- If the email requires action or attention (needs reply, needs process, event invites, etc...) create a unique md for the email in the `temp/mail` folder.
-  - The md should be direct and short.
-  - It should have a summary of the email, proposed action (create a draft reply - if it requires personal info - check the info folder to see if it is available otherwise use `[INSERT X INFO HERE]` format)
-- If the email does not require action (rejection emails, notification emails, old OTP emails, ads, etc...) move the email OUT OF THE INBOX and into the appropriate folder.
-  - If an appropriate folder is not available, add an md to the `temp/mail` folder with an action to create a new folder and the reasoning why it is necessary.
-
-Also connect to my calendar and create an md in `temp/calendar` listing today's events.
-
-- Include links and MINIMUM NECESSARY connection info for video calls, but keep the description otherwise brief.
+3. Create an md in `temp/calendar` listing today's events.
+   - Include links and MINIMUM NECESSARY connection info for video calls; keep the rest brief.
