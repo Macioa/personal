@@ -13,7 +13,7 @@
    - No fabrications, hallucinations, or uncertainty.
    - If necessary information is not found: abort and process as failure (step 4 unsuccessful).
 
-3. When the process has ended, log the application in Supabase (`applications`; link login via `application_logins` when applicable).
+3. When the process has ended, log the application in Supabase per `supabase/migrations/` (`applications`; link login via `application_logins` when applicable).
 
 4. Outcome:
    - Successful (confirmed submitted): remove the job posting md from `temp/job_posts`.

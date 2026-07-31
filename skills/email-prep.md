@@ -8,11 +8,15 @@
 1. Load personal info and scan the `info` folder.
 
 2. Check unread mail and folder structure. For each message:
-   - If it requires action or attention (needs reply, needs process, event invites, etc...) create a unique md in `temp/mail`.
+   - If it pertains to a job application:
+     - Look up matching rows in Supabase using `supabase/migrations/` (`applications` and related tables).
+     - Use that history as context.
+     - Record the communication and update related rows per the schema from the email content only.
+   - If it requires action (reply, process, invite, etc.): create a unique md in `temp/mail`.
      - Direct and short.
-     - Summary + proposed action (draft reply — if personal info is needed and missing, use `[INSERT X INFO HERE]`).
-   - If it does not require action (rejection, notification, old OTP, ads, etc...) move it OUT OF THE INBOX into the appropriate folder.
-     - If no appropriate folder exists, add an md to `temp/mail` with an action to create one and why.
+     - Summary + proposed action (draft reply — missing personal info → `[INSERT X INFO HERE]`).
+   - If it does not: move it out of the inbox into the appropriate folder.
+     - No folder → md in `temp/mail` to create one and why.
 
 3. Create an md in `temp/calendar` listing today's events.
-   - Include links and MINIMUM NECESSARY connection info for video calls; keep the rest brief.
+   - Links and minimum necessary video-call connection info only.
