@@ -8,7 +8,7 @@ Refactor the requested code, md(s), or document(s) for optimal language compress
 
 ## Pass 1 — mathematical compression
 
-1. Reorganize statements to reduce redundancy.
+1. Reorganize statements to reduce redundancy and improve clarity and flow.
 2. Optimize for LLM instruction.
 3. Rephrase only when compression is significant.
 4. Compress only — do not remove information or instructions.
