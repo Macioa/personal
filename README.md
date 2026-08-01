@@ -1,8 +1,14 @@
 # personal
 
-Private stash for reusable personal info and LLM tasks.
+Private stash for reusable personal info and LLM tasks — handling emails, applying to jobs, refactoring code and documents, recording demo videos, and daily summaries.
+
+## Install
+
+Run `skills/setup.md` with Claude, Cursor, or a coding agent.
 
 ## Layout
 
 - `info/` — facts, preferences, context worth reusing across chats
-- `tasks/` — prompts, workflows, and repeatable LLM task templates
+- `skills/` — prompts and workflows for repeatable tasks
+- `docs/` — operational notes (atomic routing, installs, logins)
+- `supabase/` — schema and migrations for personal data
