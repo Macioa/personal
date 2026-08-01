@@ -8,7 +8,7 @@ Turn a single developer's merged/closed/open PRs from a day into one narrated, u
 
 **Local paths:** read `local.env` at the repo root (copy from `local.env.example` if missing). Use `PLAYWRIGHT_DIR`, `DEMO_VIDEOS_DIR`, `VIDEO_OUTPUT_DIR`. Do not invent values.
 
-This is the **orchestration layer**. Low-level recording + encoding (Playwright synthetic-cursor capture, 1920×1080 @ dsf 2, WebM→H.264, 60fps `minterpolate`, smooth rAF scroll, capture crispness) lives in `[demo-video.md](./demo-video.md)` — **do not duplicate it here; follow it for capture or transcode.** This doc covers only what that skill doesn't: choosing content, framing as a daily report, on-screen text, voiceover, length budget, and stitching.
+This is the **orchestration layer**. Low-level recording + encoding (Playwright synthetic-cursor capture, 1920×1080 @ dsf 2, WebM→H.264, 60fps `minterpolate`, smooth rAF scroll, capture crispness) lives in `[demo-video.md](../skills/demo-video.md)` — **do not duplicate it here; follow it for capture or transcode.** This doc covers only what that skill doesn't: choosing content, framing as a daily report, on-screen text, voiceover, length budget, and stitching.
 
 Reusable pipeline in `$DEMO_VIDEOS_DIR`:
 
