@@ -1,0 +1,11 @@
+---
+description: Before email replies and job applications, load the Education row and follow it
+alwaysApply: true
+---
+
+# Education
+
+Before an email reply or a job application, load `personal_info_and_docs` where `name` is `Education`.
+
+- Quote that row for school, field, attendance, and completion. Do not invent or contradict it.
+- Do not copy those facts into repo files.

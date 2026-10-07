@@ -4,6 +4,8 @@ Thumbs.db
 .env
 .env.*
 local.env
+_tmp_*.py
+supabase/.temp/
 temp/**
 !temp/job_posts/
 !temp/job_posts/.gitkeep

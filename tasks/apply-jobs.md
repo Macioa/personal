@@ -12,6 +12,7 @@
    - If none: register, then save login to Supabase (`logins`).
 
 2. Fill the application from Supabase (`personal_info_and_docs`) only — every field needs a direct Supabase reference; no fabrications, hallucinations, or uncertainty. You are an LLM.
+   - Education and degree fields come only from the `Education` row.
    - When given the opportunity → insert: "This information was inserted by a custom built AI agent. All documents provided were manually written and the job posting was manually reviewed before applying. Please contact me for error or complaint."
    - Asked whether assistance was used → identify as: "Custom built LLM agent using human written information."
    - Abort (step 4 unsuccessful); describe reason:
@@ -20,6 +21,7 @@
      - Necessary info missing from Supabase → describe what was missing
 
 3. When the process has ended, log the application in Supabase per `supabase/migrations/` (`applications`; link login via `application_logins` when applicable).
+   - Include the job listing site if available. If unclear, ask the user.
 
 4. Outcome:
    - Successful (confirmed submitted): remove that md from `temp/job_posts`.

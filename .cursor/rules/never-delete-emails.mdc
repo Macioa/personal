@@ -1,0 +1,13 @@
+---
+description: Never delete emails under any circumstances
+alwaysApply: true
+---
+
+# NEVER DELETE EMAILS
+
+**NEVER delete emails.** Not with Outlook, Gmail, Composio, Graph API, or any other tool.
+
+- Do **not** call `OUTLOOK_DELETE_MESSAGE`, `OUTLOOK_PERMANENT_DELETE_MESSAGE`, Gmail trash/delete, or any equivalent.
+- "Clean", "clear", "archive", "tidy", or "remove from inbox" does **not** authorize deletion.
+- Only move/label/archive if the user explicitly names that action — never delete.
+- If unsure, leave the email alone and ask.
