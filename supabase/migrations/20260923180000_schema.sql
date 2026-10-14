@@ -195,7 +195,7 @@ INSERT INTO public.abuse_severity_rubric (band, label, description) VALUES
   (1, 'Careless',
    'Careless: wrong name, template reply, curt'),
   (2, 'Disrespectful',
-   'Disrespectful: ghosting after contact, no-show, patronizing'),
+   'Disrespectful: promised follow-up and did not, no-show without follow-up, patronizing'),
   (3, 'Deceptive or coercive',
    'Deceptive or coercive: ghost job, bait-and-switch, résumé sent without consent'),
   (4, 'Mocking or derogatory',
@@ -225,12 +225,14 @@ INSERT INTO public.abuse_impact_escalator (code, description) VALUES
   ('lost_opportunity', 'Concrete other opportunity lost'),
   ('current_job_at_risk', 'Current employment put at risk'),
   ('money_lost', 'Out-of-pocket money lost'),
-  ('identity_theft', 'Identity theft or credential misuse');
+  ('identity_theft', 'Identity theft or credential misuse'),
+  ('psychological_torment', 'Psychological torment'),
+  ('organized_harrassment', 'Organized harrassment');
 
 INSERT INTO public.abuse_severity_escalator (code, description) VALUES
   ('wrong_name_or_template', 'Wrong name or obvious template reply'),
-  ('ghosting_after_contact', 'Ghosting after substantive contact'),
-  ('no_show', 'No-show to a scheduled meeting'),
+  ('ghosting_after_otherwise_indicated', 'Promised follow-up and did not'),
+  ('no_show_without_follow_up', 'No-show without follow-up'),
   ('patronizing', 'Patronizing tone or treatment'),
   ('ghost_job', 'Ghost job / role never real'),
   ('bait_and_switch', 'Bait-and-switch on role, pay, or terms'),
@@ -242,7 +244,12 @@ INSERT INTO public.abuse_severity_escalator (code, description) VALUES
   ('sexual_advances', 'Sexual advances or harassment'),
   ('threats', 'Threats'),
   ('retaliation', 'Retaliation'),
-  ('scams', 'Scams or fraud');
+  ('scams', 'Scams or fraud'),
+  ('persistent_refusal_to_acknowledge', 'Persistent refusal to acknowledge'),
+  ('strawman_response', 'Primary argument is ignored while irrelevant detail is contested'),
+  ('request_to_run_unprotected_code_on_local', 'Request to run unprotected code on a local machine; a common "job" crypto scam'),
+  ('persistent_interuption', 'Persistent interuption'),
+  ('prioritized_job_details_over_candidate_details', 'Prioritized job details over candidate details');
 
 COMMENT ON TABLE public.abuse_impact_escalator IS
   'Fixed impact escalator codes. Any one on a row adds +1 to impact_score; they do not stack.';
@@ -285,6 +292,11 @@ CREATE TABLE public.abuse (
     GENERATED ALWAYS AS (
       public.abuse_computed_score(severity_band, severity_escalators, confidence)
     ) STORED,
+  persistent_refusal_to_acknowledge boolean NOT NULL DEFAULT false,
+  strawman_response boolean NOT NULL DEFAULT false,
+  request_to_run_unprotected_code_on_local boolean NOT NULL DEFAULT false,
+  persistent_interuption boolean NOT NULL DEFAULT false,
+  prioritized_job_details_over_candidate_details boolean NOT NULL DEFAULT false,
   CONSTRAINT abuse_impact_band_range_chk
     CHECK (impact_band IS NULL OR impact_band BETWEEN 1 AND 5),
   CONSTRAINT abuse_severity_band_range_chk
@@ -302,15 +314,17 @@ CREATE TABLE public.abuse (
         'lost_opportunity',
         'current_job_at_risk',
         'money_lost',
-        'identity_theft'
+        'identity_theft',
+        'psychological_torment',
+        'organized_harrassment'
       ]::text[]
     ),
   CONSTRAINT abuse_severity_escalators_known_chk
     CHECK (
       severity_escalators <@ ARRAY[
         'wrong_name_or_template',
-        'ghosting_after_contact',
-        'no_show',
+        'ghosting_after_otherwise_indicated',
+        'no_show_without_follow_up',
         'patronizing',
         'ghost_job',
         'bait_and_switch',
@@ -322,7 +336,12 @@ CREATE TABLE public.abuse (
         'sexual_advances',
         'threats',
         'retaliation',
-        'scams'
+        'scams',
+        'persistent_refusal_to_acknowledge',
+        'strawman_response',
+        'request_to_run_unprotected_code_on_local',
+        'persistent_interuption',
+        'prioritized_job_details_over_candidate_details'
       ]::text[]
     ),
   CONSTRAINT abuse_impact_score_range_chk
@@ -337,6 +356,8 @@ CREATE INDEX abuse_application_id_idx
 CREATE INDEX abuse_communication_id_idx
   ON public.abuse (communication_id);
 
+COMMENT ON COLUMN public.abuse.ghosting_after_otherwise_indicated IS
+  'True when they indicated they would follow up and did not.';
 COMMENT ON COLUMN public.abuse.evidence_quote IS
   'Exact quote first. For ghosting or no-shows, write dated facts instead.';
 COMMENT ON COLUMN public.abuse.hours_lost IS
