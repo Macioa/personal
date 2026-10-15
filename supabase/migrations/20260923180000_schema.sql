@@ -298,6 +298,7 @@ CREATE TABLE public.abuse (
   persistent_interuption boolean NOT NULL DEFAULT false,
   prioritized_job_details_over_candidate_details boolean NOT NULL DEFAULT false,
   false_or_deceptive_reporting boolean NOT NULL DEFAULT false,
+  repetition_without_acknowledgement_of_repetition boolean NOT NULL DEFAULT false,
   CONSTRAINT abuse_impact_band_range_chk
     CHECK (impact_band IS NULL OR impact_band BETWEEN 1 AND 5),
   CONSTRAINT abuse_severity_band_range_chk
@@ -389,6 +390,8 @@ COMMENT ON COLUMN public.abuse.indirect_imitation IS
   'Indirect imitation (distinct from direct_imitation).';
 COMMENT ON COLUMN public.abuse.false_or_deceptive_reporting IS
   'False or deceptive reporting.';
+COMMENT ON COLUMN public.abuse.repetition_without_acknowledgement_of_repetition IS
+  'The same claim or request is repeated without acknowledging that it was already said.';
 
 -- ---------------------------------------------------------------------------
 -- MCP-only access: RLS on, no anon/authenticated policies or grants
