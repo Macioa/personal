@@ -1,0 +1,11 @@
+---
+description: Before job applications, load Spoken Languages, Certifications, and Websites
+alwaysApply: true
+---
+
+# Application languages, certs, websites
+
+Before a job application, load `personal_info_and_docs` where `name` is `Spoken Languages`, `Certifications`, and `Websites`.
+
+- Quote those rows. Do not invent or skip them.
+- Do not copy those facts into repo files.

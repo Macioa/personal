@@ -6,10 +6,4 @@ Thumbs.db
 local.env
 _tmp_*.py
 supabase/.temp/
-temp/**
-!temp/job_posts/
-!temp/job_posts/.gitkeep
-!temp/calendar/
-!temp/calendar/.gitkeep
-!temp/mail/
-!temp/mail/.gitkeep
+temp/
