@@ -433,7 +433,8 @@ CREATE TABLE public.employer (
   start_year integer,
   end_day integer,
   end_month integer,
-  end_year integer
+  end_year integer,
+  private boolean NOT NULL DEFAULT false
 );
 
 CREATE TABLE public.employment_titles (
@@ -447,7 +448,8 @@ CREATE TABLE public.employment_titles (
   end_day integer,
   end_month integer,
   end_year integer,
-  remote boolean
+  remote boolean,
+  private boolean NOT NULL DEFAULT false
 );
 
 CREATE TABLE public.employer_portals (
@@ -463,7 +465,8 @@ CREATE TABLE public.skills (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text,
   "desc" text,
-  type public.skill_type
+  type public.skill_type,
+  private boolean NOT NULL DEFAULT false
 );
 
 CREATE TABLE public.education_and_training (
@@ -484,7 +487,8 @@ CREATE TABLE public.education_and_training (
   end_day integer,
   end_month integer,
   end_year integer,
-  remote boolean
+  remote boolean,
+  private boolean NOT NULL DEFAULT false
 );
 
 CREATE TABLE public.personal_growth (
@@ -499,7 +503,8 @@ CREATE TABLE public.personal_growth (
   start_year integer,
   end_day integer,
   end_month integer,
-  end_year integer
+  end_year integer,
+  private boolean NOT NULL DEFAULT false
 );
 
 CREATE TABLE public.employer_employer_portals (
@@ -516,6 +521,7 @@ CREATE TABLE public.skill_links (
   employer_id uuid REFERENCES public.employer (id) ON DELETE CASCADE,
   education_and_training_id uuid REFERENCES public.education_and_training (id) ON DELETE CASCADE,
   personal_growth_id uuid REFERENCES public.personal_growth (id) ON DELETE CASCADE,
+  private boolean NOT NULL DEFAULT false,
   CONSTRAINT skill_links_exactly_one_target_chk
     CHECK (num_nonnulls(employment_title_id, employer_id, education_and_training_id, personal_growth_id) = 1)
 );
@@ -707,3 +713,56 @@ REVOKE ALL ON TABLE public.employer_employer_portals FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skill_links FROM anon, authenticated;
 
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- resume_reader: login role for resume work. Sees only non-private career rows
+-- (and not rows whose parent is private). Set its password out of band:
+--   ALTER ROLE resume_reader PASSWORD '...';
+-- ---------------------------------------------------------------------------
+CREATE ROLE resume_reader LOGIN NOINHERIT;
+
+GRANT USAGE ON SCHEMA public TO resume_reader;
+GRANT SELECT ON TABLE public.employer TO resume_reader;
+GRANT SELECT ON TABLE public.employment_titles TO resume_reader;
+GRANT SELECT ON TABLE public.education_and_training TO resume_reader;
+GRANT SELECT ON TABLE public.personal_growth TO resume_reader;
+GRANT SELECT ON TABLE public.skills TO resume_reader;
+GRANT SELECT ON TABLE public.skill_links TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO resume_reader;
+
+CREATE POLICY resume_reader_select ON public.employer
+  FOR SELECT TO resume_reader
+  USING (NOT private);
+
+-- Parent lookups below are themselves filtered by resume_reader's policies.
+CREATE POLICY resume_reader_select ON public.employment_titles
+  FOR SELECT TO resume_reader
+  USING (NOT private AND EXISTS (SELECT 1 FROM public.employer e WHERE e.id = employer_id));
+
+CREATE POLICY resume_reader_select ON public.education_and_training
+  FOR SELECT TO resume_reader
+  USING (NOT private);
+
+CREATE POLICY resume_reader_select ON public.personal_growth
+  FOR SELECT TO resume_reader
+  USING (NOT private);
+
+CREATE POLICY resume_reader_select ON public.skills
+  FOR SELECT TO resume_reader
+  USING (NOT private);
+
+CREATE POLICY resume_reader_select ON public.skill_links
+  FOR SELECT TO resume_reader
+  USING (
+    NOT private
+    AND EXISTS (SELECT 1 FROM public.skills s WHERE s.id = skill_id)
+    AND (employment_title_id IS NULL
+      OR EXISTS (SELECT 1 FROM public.employment_titles t WHERE t.id = employment_title_id))
+    AND (employer_id IS NULL
+      OR EXISTS (SELECT 1 FROM public.employer e WHERE e.id = employer_id))
+    AND (education_and_training_id IS NULL
+      OR EXISTS (SELECT 1 FROM public.education_and_training d WHERE d.id = education_and_training_id))
+    AND (personal_growth_id IS NULL
+      OR EXISTS (SELECT 1 FROM public.personal_growth g WHERE g.id = personal_growth_id))
+  );
