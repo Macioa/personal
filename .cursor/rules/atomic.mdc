@@ -12,7 +12,7 @@ alwaysApply: true
 
 ## Web browsing
 
-**All web browsing and web recordings use EasyPlaywrightMCP.** No exceptions unless it fails.
+**All web browsing and web recordings prioritize, in order: Claude in Chrome, EasyPlaywrightMCP, Browser MCP.** Use the next one only if the previous fails.
 
 ## Other tasks
 

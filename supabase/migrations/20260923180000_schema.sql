@@ -547,6 +547,35 @@ CREATE INDEX skill_links_education_and_training_id_idx
 CREATE INDEX skill_links_personal_growth_id_idx
   ON public.skill_links (personal_growth_id);
 
+COMMENT ON COLUMN public.employer.company_desc IS
+  'Description of the company only: industry and purpose, from public info on the company site. Nothing about the position or the employee.';
+COMMENT ON COLUMN public.employer.resume_desc IS
+  'Resume text for the role: industry, role description and employee contributions. Leave null if uncertain.';
+COMMENT ON COLUMN public.employer.end_title IS
+  'Last title held at this employer.';
+COMMENT ON COLUMN public.employer.private IS
+  'True hides the row (and its titles and skill links) from resume_reader. Use for work kept off the resume.';
+COMMENT ON COLUMN public.employment_titles."desc" IS
+  'Resume text for this title: role description and employee contributions. Leave null if uncertain.';
+COMMENT ON COLUMN public.employment_titles.remote IS
+  'True if the role was remote, false if onsite; null if unknown.';
+COMMENT ON COLUMN public.employment_titles.private IS
+  'True hides the title (and its skill links) from resume_reader.';
+COMMENT ON COLUMN public.employer_portals.w2_or_tax IS
+  'True if the portal holds W-2s, pay stubs or other tax documents.';
+COMMENT ON COLUMN public.employer_portals.contains_contracts IS
+  'True if the portal holds signed contracts or agreements.';
+COMMENT ON COLUMN public.education_and_training.remote IS
+  'True if attended remotely, false if onsite; null if unknown.';
+COMMENT ON COLUMN public.education_and_training.private IS
+  'True hides the row (and its skill links) from resume_reader.';
+COMMENT ON COLUMN public.personal_growth.private IS
+  'True hides the row (and its skill links) from resume_reader.';
+COMMENT ON COLUMN public.skills.private IS
+  'True hides the skill (and its links) from resume_reader.';
+COMMENT ON COLUMN public.skill_links.private IS
+  'True hides this link from resume_reader, so it is left out of skill totals.';
+
 -- Usage spans come from the linked row's dates. Missing start parts default to
 -- Jan 1; missing end parts default to the last day of the year/month; a null
 -- end_year means ongoing (today). precise = union of spans with overlaps
