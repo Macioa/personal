@@ -7,3 +7,4 @@ local.env
 _tmp_*.py
 supabase/.temp/
 temp/
+.mcp.json

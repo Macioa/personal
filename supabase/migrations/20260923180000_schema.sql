@@ -30,7 +30,8 @@ CREATE TYPE public.conversation_type AS ENUM (
   'phone',
   'dm',
   'email',
-  'other'
+  'other',
+  'sms'
 );
 
 CREATE TYPE public.personal_info_doc_type AS ENUM (
@@ -394,6 +395,255 @@ COMMENT ON COLUMN public.abuse.repetition_without_acknowledgement_of_repetition 
   'The same claim or request is repeated without acknowledging that it was already said.';
 
 -- ---------------------------------------------------------------------------
+-- Career history: employers, titles, portals, skills, education, growth
+-- ---------------------------------------------------------------------------
+CREATE TYPE public.skill_type AS ENUM (
+  'hard',
+  'soft',
+  'both',
+  'other'
+);
+
+CREATE TYPE public.education_type AS ENUM (
+  'bachelors',
+  'masters',
+  'phd',
+  'training',
+  'certificate',
+  'training_certificate',
+  'other'
+);
+
+CREATE TYPE public.skill_usage_mode AS ENUM (
+  'precise',
+  'start_to_end'
+);
+
+CREATE TABLE public.employer (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text,
+  address text,
+  phone text,
+  website text,
+  company_desc text,
+  resume_desc text,
+  end_title text,
+  start_day integer,
+  start_month integer,
+  start_year integer,
+  end_day integer,
+  end_month integer,
+  end_year integer
+);
+
+CREATE TABLE public.employment_titles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  employer_id uuid NOT NULL REFERENCES public.employer (id) ON DELETE CASCADE,
+  name text,
+  "desc" text,
+  start_day integer,
+  start_month integer,
+  start_year integer,
+  end_day integer,
+  end_month integer,
+  end_year integer,
+  remote boolean
+);
+
+CREATE TABLE public.employer_portals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text,
+  url text,
+  username text,
+  w2_or_tax boolean,
+  contains_contracts boolean
+);
+
+CREATE TABLE public.skills (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text,
+  "desc" text,
+  type public.skill_type
+);
+
+CREATE TABLE public.education_and_training (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text,
+  address text,
+  phone text,
+  website text,
+  type public.education_type,
+  desc_short text,
+  desc_long text,
+  completed boolean,
+  accredited boolean,
+  attending boolean,
+  start_day integer,
+  start_month integer,
+  start_year integer,
+  end_day integer,
+  end_month integer,
+  end_year integer,
+  remote boolean
+);
+
+CREATE TABLE public.personal_growth (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text,
+  desc_short text,
+  desc_long text,
+  url text,
+  other_info text,
+  start_day integer,
+  start_month integer,
+  start_year integer,
+  end_day integer,
+  end_month integer,
+  end_year integer
+);
+
+CREATE TABLE public.employer_employer_portals (
+  employer_id uuid NOT NULL REFERENCES public.employer (id) ON DELETE CASCADE,
+  employer_portal_id uuid NOT NULL REFERENCES public.employer_portals (id) ON DELETE CASCADE,
+  PRIMARY KEY (employer_id, employer_portal_id)
+);
+
+-- One row links a skill to exactly one of: title, employer, education, growth.
+CREATE TABLE public.skill_links (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  skill_id uuid NOT NULL REFERENCES public.skills (id) ON DELETE CASCADE,
+  employment_title_id uuid REFERENCES public.employment_titles (id) ON DELETE CASCADE,
+  employer_id uuid REFERENCES public.employer (id) ON DELETE CASCADE,
+  education_and_training_id uuid REFERENCES public.education_and_training (id) ON DELETE CASCADE,
+  personal_growth_id uuid REFERENCES public.personal_growth (id) ON DELETE CASCADE,
+  CONSTRAINT skill_links_exactly_one_target_chk
+    CHECK (num_nonnulls(employment_title_id, employer_id, education_and_training_id, personal_growth_id) = 1)
+);
+
+CREATE INDEX employment_titles_employer_id_idx
+  ON public.employment_titles (employer_id);
+
+CREATE INDEX employer_employer_portals_employer_portal_id_idx
+  ON public.employer_employer_portals (employer_portal_id);
+
+CREATE INDEX skill_links_skill_id_idx
+  ON public.skill_links (skill_id);
+
+CREATE INDEX skill_links_employment_title_id_idx
+  ON public.skill_links (employment_title_id);
+
+CREATE INDEX skill_links_employer_id_idx
+  ON public.skill_links (employer_id);
+
+CREATE INDEX skill_links_education_and_training_id_idx
+  ON public.skill_links (education_and_training_id);
+
+CREATE INDEX skill_links_personal_growth_id_idx
+  ON public.skill_links (personal_growth_id);
+
+-- Usage spans come from the linked row's dates. Missing start parts default to
+-- Jan 1; missing end parts default to the last day of the year/month; a null
+-- end_year means ongoing (today). precise = union of spans with overlaps
+-- merged; start_to_end = last_used - first_used.
+CREATE OR REPLACE FUNCTION public.get_skill(
+  p_skill text,
+  p_mode public.skill_usage_mode DEFAULT 'start_to_end'
+) RETURNS TABLE (
+  skill_id uuid,
+  name text,
+  "desc" text,
+  type public.skill_type,
+  first_used date,
+  last_used date,
+  total_days integer
+)
+LANGUAGE sql
+STABLE
+AS $$
+  WITH s AS (
+    SELECT sk.id, sk.name, sk."desc", sk.type
+    FROM public.skills sk
+    WHERE lower(sk.name) = lower(p_skill)
+  ),
+  raw AS (
+    SELECT l.skill_id,
+      coalesce(t.start_year, e.start_year, ed.start_year, g.start_year) AS sy,
+      coalesce(t.start_month, e.start_month, ed.start_month, g.start_month) AS sm,
+      coalesce(t.start_day, e.start_day, ed.start_day, g.start_day) AS sd,
+      coalesce(t.end_year, e.end_year, ed.end_year, g.end_year) AS ey,
+      coalesce(t.end_month, e.end_month, ed.end_month, g.end_month) AS em,
+      coalesce(t.end_day, e.end_day, ed.end_day, g.end_day) AS endd
+    FROM public.skill_links l
+    JOIN s ON s.id = l.skill_id
+    LEFT JOIN public.employment_titles t ON t.id = l.employment_title_id
+    LEFT JOIN public.employer e ON e.id = l.employer_id
+    LEFT JOIN public.education_and_training ed ON ed.id = l.education_and_training_id
+    LEFT JOIN public.personal_growth g ON g.id = l.personal_growth_id
+  ),
+  spans AS (
+    SELECT skill_id,
+      make_date(sy, coalesce(sm, 1), coalesce(sd, 1)) AS s,
+      CASE
+        WHEN ey IS NULL THEN current_date
+        WHEN em IS NOT NULL AND endd IS NOT NULL THEN make_date(ey, em, endd)
+        ELSE (make_date(ey, coalesce(em, 12), 1) + interval '1 month' - interval '1 day')::date
+      END AS e
+    FROM raw
+    WHERE sy IS NOT NULL
+  ),
+  ordered AS (
+    SELECT skill_id, s, e,
+      max(e) OVER (PARTITION BY skill_id ORDER BY s, e
+                   ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS prev_max
+    FROM spans
+  ),
+  grouped AS (
+    SELECT skill_id, s, e,
+      sum(CASE WHEN prev_max IS NULL OR s > prev_max THEN 1 ELSE 0 END)
+        OVER (PARTITION BY skill_id ORDER BY s, e) AS grp
+    FROM ordered
+  ),
+  merged AS (
+    SELECT skill_id, min(s) AS s, max(e) AS e
+    FROM grouped
+    GROUP BY skill_id, grp
+  ),
+  agg AS (
+    SELECT skill_id, min(s) AS first_used, max(e) AS last_used,
+      sum(e - s)::integer AS precise_days
+    FROM merged
+    GROUP BY skill_id
+  )
+  SELECT s.id, s.name, s."desc", s.type, a.first_used, a.last_used,
+    CASE
+      WHEN p_mode = 'precise'::public.skill_usage_mode THEN a.precise_days
+      ELSE (a.last_used - a.first_used)
+    END
+  FROM s
+  LEFT JOIN agg a ON a.skill_id = s.id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_skills(
+  p_skills text[],
+  p_mode public.skill_usage_mode DEFAULT 'start_to_end'
+) RETURNS TABLE (
+  skill_id uuid,
+  name text,
+  "desc" text,
+  type public.skill_type,
+  first_used date,
+  last_used date,
+  total_days integer
+)
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT g.*
+  FROM unnest(p_skills) AS u(skill)
+  CROSS JOIN LATERAL public.get_skill(u.skill, p_mode) AS g;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- MCP-only access: RLS on, no anon/authenticated policies or grants
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.applications ENABLE ROW LEVEL SECURITY;
@@ -407,6 +657,14 @@ ALTER TABLE public.abuse_impact_rubric ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.abuse_severity_rubric ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.abuse_impact_escalator ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.abuse_severity_escalator ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employer ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employment_titles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employer_portals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.skills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.education_and_training ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.personal_growth ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employer_employer_portals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.skill_links ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.applications FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.application_interviews FORCE ROW LEVEL SECURITY;
@@ -419,6 +677,14 @@ ALTER TABLE public.abuse_impact_rubric FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.abuse_severity_rubric FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.abuse_impact_escalator FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.abuse_severity_escalator FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.employer FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.employment_titles FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.employer_portals FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.skills FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.education_and_training FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.personal_growth FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.employer_employer_portals FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.skill_links FORCE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.applications FROM anon, authenticated;
 REVOKE ALL ON TABLE public.application_interviews FROM anon, authenticated;
@@ -431,5 +697,13 @@ REVOKE ALL ON TABLE public.abuse_impact_rubric FROM anon, authenticated;
 REVOKE ALL ON TABLE public.abuse_severity_rubric FROM anon, authenticated;
 REVOKE ALL ON TABLE public.abuse_impact_escalator FROM anon, authenticated;
 REVOKE ALL ON TABLE public.abuse_severity_escalator FROM anon, authenticated;
+REVOKE ALL ON TABLE public.employer FROM anon, authenticated;
+REVOKE ALL ON TABLE public.employment_titles FROM anon, authenticated;
+REVOKE ALL ON TABLE public.employer_portals FROM anon, authenticated;
+REVOKE ALL ON TABLE public.skills FROM anon, authenticated;
+REVOKE ALL ON TABLE public.education_and_training FROM anon, authenticated;
+REVOKE ALL ON TABLE public.personal_growth FROM anon, authenticated;
+REVOKE ALL ON TABLE public.employer_employer_portals FROM anon, authenticated;
+REVOKE ALL ON TABLE public.skill_links FROM anon, authenticated;
 
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
