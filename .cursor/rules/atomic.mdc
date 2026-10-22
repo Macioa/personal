@@ -21,4 +21,4 @@ alwaysApply: true
 3. Personal information and job preferences → Supabase MCP
    - Schema: `supabase/migrations/`
    - Table: `personal_info_and_docs`
-4. Call transcripts → Fathom; fallback `scripts/transcribe.py` (see `tasks/call-transcript.md`)
+4. Call transcripts → Fathom; fallback `scripts/transcribe/main.py` (see `tasks/call-transcript.md`)
