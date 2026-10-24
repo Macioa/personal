@@ -97,7 +97,8 @@ CREATE TABLE public.application_conversations (
   application_id uuid NOT NULL REFERENCES public.applications (id) ON DELETE CASCADE,
   type public.conversation_type NOT NULL,
   short_summary varchar(500),
-  content text
+  content text,
+  occurred_at timestamptz
 );
 
 CREATE TABLE public.personal_info_and_docs (
