@@ -4,6 +4,6 @@
 > NO EMBELLISHMENT, HALLUCINATION, ASSUMPTION, OR PARAPHRASING.
 > IF ANYTHING IS MISSING OR UNCLEAR, ASK THE USER OR PROPOSE TO THE USER.
 
-1. Prompt for: name, desc, type, private.
+1. Prompt for: name, desc, type, skill_group, private. For skill_group, show existing values (`SELECT DISTINCT skill_group FROM skills`) and propose one; the user confirms.
 2. Prompt for the titles, employers, education, and growth to link; link only the rows the user confirms.
 3. Show the rows and insert after the user confirms.

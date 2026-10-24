@@ -70,6 +70,7 @@ CREATE TABLE public.skills (
   name text,
   "desc" text,
   type public.skill_type,
+  skill_group text,
   private boolean NOT NULL DEFAULT false
 );
 
@@ -154,6 +155,10 @@ COMMENT ON COLUMN public.education_and_training.private IS
   'True hides the row (and its skill links) from resume_reader.';
 COMMENT ON COLUMN public.personal_growth.private IS
   'True hides the row (and its skill links) from resume_reader.';
+COMMENT ON COLUMN public.skills.type IS
+  'Kind of skill (hard/soft). For display grouping use skill_group.';
+COMMENT ON COLUMN public.skills.skill_group IS
+  'Consolidation bucket for resume display, e.g. "Programming languages", "Web server frameworks", "Cloud platforms". Reuse an existing value (SELECT DISTINCT skill_group FROM skills) before adding one. Null = standalone skill.';
 COMMENT ON COLUMN public.skills.private IS
   'True hides the skill (and its links) from resume_reader.';
 COMMENT ON COLUMN public.skill_links.private IS
@@ -171,6 +176,7 @@ CREATE OR REPLACE FUNCTION public.get_skill(
   name text,
   "desc" text,
   type public.skill_type,
+  skill_group text,
   first_used date,
   last_used date,
   total_days integer
@@ -179,7 +185,7 @@ LANGUAGE sql
 STABLE
 AS $$
   WITH s AS (
-    SELECT sk.id, sk.name, sk."desc", sk.type
+    SELECT sk.id, sk.name, sk."desc", sk.type, sk.skill_group
     FROM public.skills sk
     WHERE lower(sk.name) = lower(p_skill)
   ),
@@ -232,7 +238,7 @@ AS $$
     FROM merged
     GROUP BY skill_id
   )
-  SELECT s.id, s.name, s."desc", s.type, a.first_used, a.last_used,
+  SELECT s.id, s.name, s."desc", s.type, s.skill_group, a.first_used, a.last_used,
     CASE
       WHEN p_mode = 'precise'::public.skill_usage_mode THEN a.precise_days
       ELSE (a.last_used - a.first_used)
@@ -249,6 +255,7 @@ CREATE OR REPLACE FUNCTION public.get_skills(
   name text,
   "desc" text,
   type public.skill_type,
+  skill_group text,
   first_used date,
   last_used date,
   total_days integer
@@ -323,11 +330,12 @@ LANGUAGE sql
 STABLE
 AS $$
   SELECT p.slug, p.material,
-    (SELECT jsonb_agg(jsonb_build_object(
+    (SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
         'name', g.name,
+        'group', g.skill_group,
         'first_used', g.first_used,
         'last_used', g.last_used,
-        'total_days', g.total_days) ORDER BY g.name)
+        'total_days', g.total_days)) ORDER BY g.skill_group NULLS LAST, g.name)
       FROM public.get_skills(
         ARRAY(SELECT s.name FROM public.pitch_skills ps
               JOIN public.skills s ON s.id = ps.skill_id

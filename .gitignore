@@ -9,3 +9,4 @@ supabase/.temp/
 temp/
 __pycache__/
 *.pyc
+backups/
