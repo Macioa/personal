@@ -10,7 +10,7 @@ Run `skills/setup.md` with Claude, Cursor, or a coding agent.
 
 - `info/` — facts, preferences, context worth reusing across chats
 - `skills/` — reusable capabilities (setup, refactor, recording, PR triage)
-- `tasks/` — personal runbooks (email, jobs, daily summaries)
+- `tasks/` — personal runbooks (email, jobs, daily summaries); `tasks/add-resume-info/` adds resume and personal info
 - `scripts/` — local scripts (call transcription, video archive)
 - `docs/` — operational notes (atomic routing, installs, logins)
 - `supabase/` — schema and migrations for personal data

@@ -680,6 +680,125 @@ AS $$
 $$;
 
 -- ---------------------------------------------------------------------------
+-- Pitches: user-written guidance for producing job-specific material
+-- ---------------------------------------------------------------------------
+CREATE TYPE public.pitch_type AS ENUM (
+  'technical',
+  'leadership',
+  'delivery',
+  'domain',
+  'collaboration',
+  'other'
+);
+
+CREATE TABLE public.pitches (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text NOT NULL UNIQUE,
+  type public.pitch_type NOT NULL,
+  title text NOT NULL,
+  use_when varchar(300) NOT NULL,
+  material text NOT NULL,
+  keywords text[] NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE public.pitch_skills (
+  pitch_id uuid NOT NULL REFERENCES public.pitches (id),
+  skill_id uuid NOT NULL REFERENCES public.skills (id),
+  PRIMARY KEY (pitch_id, skill_id)
+);
+
+-- One row links a pitch to exactly one proof: title, employer, education, growth.
+CREATE TABLE public.pitch_evidence (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  pitch_id uuid NOT NULL REFERENCES public.pitches (id),
+  employment_title_id uuid REFERENCES public.employment_titles (id),
+  employer_id uuid REFERENCES public.employer (id),
+  education_and_training_id uuid REFERENCES public.education_and_training (id),
+  personal_growth_id uuid REFERENCES public.personal_growth (id),
+  note varchar(300),
+  CONSTRAINT pitch_evidence_exactly_one_target_chk
+    CHECK (num_nonnulls(employment_title_id, employer_id, education_and_training_id, personal_growth_id) = 1)
+);
+
+CREATE INDEX pitch_skills_skill_id_idx
+  ON public.pitch_skills (skill_id);
+
+CREATE INDEX pitch_evidence_pitch_id_idx
+  ON public.pitch_evidence (pitch_id);
+
+CREATE VIEW public.pitch_catalog WITH (security_invoker = true) AS
+SELECT p.slug, p.type, p.title, p.use_when, p.keywords,
+  ARRAY(SELECT s.name FROM public.pitch_skills ps
+        JOIN public.skills s ON s.id = ps.skill_id
+        WHERE ps.pitch_id = p.id ORDER BY s.name) AS skills,
+  (SELECT count(*) FROM public.pitch_evidence e WHERE e.pitch_id = p.id) AS evidence_count
+FROM public.pitches p;
+
+CREATE OR REPLACE FUNCTION public.pitch_detail(
+  p_slugs text[],
+  p_mode public.skill_usage_mode
+) RETURNS TABLE (
+  slug text,
+  material text,
+  skills jsonb,
+  evidence jsonb
+)
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT p.slug, p.material,
+    (SELECT jsonb_agg(jsonb_build_object(
+        'name', g.name,
+        'first_used', g.first_used,
+        'last_used', g.last_used,
+        'total_days', g.total_days) ORDER BY g.name)
+      FROM public.get_skills(
+        ARRAY(SELECT s.name FROM public.pitch_skills ps
+              JOIN public.skills s ON s.id = ps.skill_id
+              WHERE ps.pitch_id = p.id),
+        p_mode) AS g),
+    (SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+        'employer', coalesce(e.name, te.name),
+        'title', t.name,
+        'education', d.name,
+        'growth', gr.name,
+        'start_year', coalesce(t.start_year, e.start_year, d.start_year, gr.start_year),
+        'end_year', coalesce(t.end_year, e.end_year, d.end_year, gr.end_year),
+        'description', coalesce(t."desc", e.resume_desc, d.desc_long, gr.desc_long),
+        'note', pe.note)))
+      FROM public.pitch_evidence pe
+      LEFT JOIN public.employment_titles t ON t.id = pe.employment_title_id
+      LEFT JOIN public.employer te ON te.id = t.employer_id
+      LEFT JOIN public.employer e ON e.id = pe.employer_id
+      LEFT JOIN public.education_and_training d ON d.id = pe.education_and_training_id
+      LEFT JOIN public.personal_growth gr ON gr.id = pe.personal_growth_id
+      WHERE pe.pitch_id = p.id)
+  FROM public.pitches p
+  WHERE p.slug = ANY (p_slugs);
+$$;
+
+COMMENT ON TABLE public.pitches IS
+  'Select pitches that fit the job post; write the output from them.';
+COMMENT ON COLUMN public.pitches.slug IS
+  'Cite the slugs used in each output.';
+COMMENT ON COLUMN public.pitches.use_when IS
+  'Used for choosing pitches for a job post.';
+COMMENT ON COLUMN public.pitches.material IS
+  'Primary source for generated text. Adapt it to the job post; add no claims beyond it and the evidence.';
+COMMENT ON COLUMN public.pitches.keywords IS
+  'Used for finding appropriate pitches.';
+COMMENT ON TABLE public.pitch_skills IS
+  'Durations: get_skills(names, mode). One mode per output.';
+COMMENT ON TABLE public.pitch_evidence IS
+  'Join table: pitches to the work that backs them. Facts the output may state.';
+COMMENT ON COLUMN public.pitch_evidence.note IS
+  'Explains how the linked row supports the pitch.';
+COMMENT ON VIEW public.pitch_catalog IS
+  'Used for finding appropriate pitches.';
+COMMENT ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) IS
+  'Read for selected pitches before writing. p_mode sets skill durations; one mode per output.';
+
+-- ---------------------------------------------------------------------------
 -- MCP-only access: RLS on, no anon/authenticated policies or grants
 -- ---------------------------------------------------------------------------
 ALTER TABLE public.applications ENABLE ROW LEVEL SECURITY;
@@ -701,6 +820,9 @@ ALTER TABLE public.education_and_training ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_employer_portals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pitches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pitch_skills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pitch_evidence ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.applications FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.application_interviews FORCE ROW LEVEL SECURITY;
@@ -721,6 +843,9 @@ ALTER TABLE public.education_and_training FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_employer_portals FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_links FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.pitches FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.pitch_skills FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.pitch_evidence FORCE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.applications FROM anon, authenticated;
 REVOKE ALL ON TABLE public.application_interviews FROM anon, authenticated;
@@ -741,6 +866,12 @@ REVOKE ALL ON TABLE public.education_and_training FROM anon, authenticated;
 REVOKE ALL ON TABLE public.personal_growth FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employer_employer_portals FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skill_links FROM anon, authenticated;
+REVOKE ALL ON TABLE public.pitches FROM anon, authenticated;
+REVOKE ALL ON TABLE public.pitch_skills FROM anon, authenticated;
+REVOKE ALL ON TABLE public.pitch_evidence FROM anon, authenticated;
+REVOKE ALL ON TABLE public.pitch_catalog FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode)
+  FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
 
@@ -760,6 +891,11 @@ GRANT SELECT ON TABLE public.skills TO resume_reader;
 GRANT SELECT ON TABLE public.skill_links TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO resume_reader;
+GRANT SELECT ON TABLE public.pitches TO resume_reader;
+GRANT SELECT ON TABLE public.pitch_skills TO resume_reader;
+GRANT SELECT ON TABLE public.pitch_evidence TO resume_reader;
+GRANT SELECT ON TABLE public.pitch_catalog TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) TO resume_reader;
 
 CREATE POLICY resume_reader_select ON public.employer
   FOR SELECT TO resume_reader
@@ -788,6 +924,27 @@ CREATE POLICY resume_reader_select ON public.skill_links
     NOT private
     AND EXISTS (SELECT 1 FROM public.skills s WHERE s.id = skill_id)
     AND (employment_title_id IS NULL
+      OR EXISTS (SELECT 1 FROM public.employment_titles t WHERE t.id = employment_title_id))
+    AND (employer_id IS NULL
+      OR EXISTS (SELECT 1 FROM public.employer e WHERE e.id = employer_id))
+    AND (education_and_training_id IS NULL
+      OR EXISTS (SELECT 1 FROM public.education_and_training d WHERE d.id = education_and_training_id))
+    AND (personal_growth_id IS NULL
+      OR EXISTS (SELECT 1 FROM public.personal_growth g WHERE g.id = personal_growth_id))
+  );
+
+CREATE POLICY resume_reader_select ON public.pitches
+  FOR SELECT TO resume_reader
+  USING (true);
+
+CREATE POLICY resume_reader_select ON public.pitch_skills
+  FOR SELECT TO resume_reader
+  USING (EXISTS (SELECT 1 FROM public.skills s WHERE s.id = skill_id));
+
+CREATE POLICY resume_reader_select ON public.pitch_evidence
+  FOR SELECT TO resume_reader
+  USING (
+    (employment_title_id IS NULL
       OR EXISTS (SELECT 1 FROM public.employment_titles t WHERE t.id = employment_title_id))
     AND (employer_id IS NULL
       OR EXISTS (SELECT 1 FROM public.employer e WHERE e.id = employer_id))
