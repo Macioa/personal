@@ -7,3 +7,5 @@ local.env
 _tmp_*.py
 supabase/.temp/
 temp/
+__pycache__/
+*.pyc

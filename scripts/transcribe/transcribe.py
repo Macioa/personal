@@ -42,11 +42,12 @@ def diarize(audio, n_spk):
     return [(t.start, t.end, t.speaker) for t in result]
 
 
-# Word-timestamped transcript (VAD skips silence; timeline preserved)
-def words(audio, model):
+# Word-timestamped transcript (optional VAD skips silence; timeline preserved)
+def words(audio, model, vad=True, vad_threshold=0.5):
     from faster_whisper import WhisperModel
     segs, _ = WhisperModel(model, device="cpu", compute_type="int8").transcribe(
-        audio, vad_filter=True, word_timestamps=True, condition_on_previous_text=False, beam_size=5)
+        audio, vad_filter=vad, vad_parameters={"threshold": vad_threshold}, word_timestamps=True,
+        condition_on_previous_text=False, beam_size=5)
     return [w for s in segs for w in s.words]
 
 
@@ -89,6 +90,6 @@ def ts(x):
 
 # Write <dst>.json and <dst>.md
 def write(out, dst):
-    dst.with_suffix(".json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
-    dst.with_suffix(".md").write_text(
+    Path(f"{dst}.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    Path(f"{dst}.md").write_text(
         "".join(f"[{ts(t['start'])}] Speaker {t['speaker']}: {t['text']}\n\n" for t in out), encoding="utf-8")
