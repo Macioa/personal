@@ -101,6 +101,21 @@ REVOKE EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode)
 
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
 
+REVOKE EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode)
+  FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode)
+  FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.abuse_computed_score(smallint, text[], public.abuse_confidence)
+  FROM PUBLIC, anon, authenticated;
+
+-- New objects created by postgres start with no anon/authenticated access.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE ALL ON TABLES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE ALL ON SEQUENCES FROM anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
+
 -- ---------------------------------------------------------------------------
 -- resume_reader: login role for resume work. Sees only non-private career rows
 -- (and not rows whose parent is private). Set its password out of band:
