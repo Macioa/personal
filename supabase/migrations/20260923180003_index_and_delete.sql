@@ -9,6 +9,18 @@ CREATE INDEX application_interviews_application_id_idx
 CREATE INDEX application_conversations_application_id_idx
   ON public.application_conversations (application_id);
 
+CREATE INDEX todolist_application_id_idx
+  ON public.todolist (application_id);
+
+CREATE INDEX todolist_communication_id_idx
+  ON public.todolist (communication_id);
+
+CREATE INDEX todolist_target_date_idx
+  ON public.todolist (target_date);
+
+CREATE INDEX todolist_deadline_date_idx
+  ON public.todolist (deadline_date);
+
 CREATE INDEX personal_info_and_docs_user_id_idx
   ON public.personal_info_and_docs (user_id);
 

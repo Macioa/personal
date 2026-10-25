@@ -93,6 +93,19 @@ CREATE TABLE public.application_conversations (
   occurred_at timestamptz
 );
 
+CREATE TABLE public.todolist (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  application_id uuid REFERENCES public.applications (id) ON DELETE CASCADE,
+  communication_id uuid REFERENCES public.application_conversations (id) ON DELETE SET NULL,
+  name text NOT NULL,
+  description text,
+  target_date timestamptz,
+  deadline_date timestamptz,
+  started boolean NOT NULL DEFAULT false,
+  completed boolean NOT NULL DEFAULT false,
+  urgent boolean NOT NULL DEFAULT false
+);
+
 CREATE TABLE public.personal_info_and_docs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL

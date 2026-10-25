@@ -15,6 +15,7 @@ CREATE TYPE public.education_type AS ENUM (
   'training',
   'certificate',
   'training_certificate',
+  'clearance',
   'other'
 );
 
