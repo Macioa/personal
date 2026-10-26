@@ -1,0 +1,6 @@
+---
+description: Backup skill — remove user-specified rows from the Supabase database after preview and approval, saving them to a JSONL file in backups/ first. Use when the user asks to back up, remove, purge, or clean up database data.
+alwaysApply: false
+---
+
+Read `skills/backup.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.

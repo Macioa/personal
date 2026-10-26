@@ -101,6 +101,7 @@ CREATE TABLE public.todolist (
   description text,
   target_date timestamptz,
   deadline_date timestamptz,
+  time_estimate interval,
   started boolean NOT NULL DEFAULT false,
   completed boolean NOT NULL DEFAULT false,
   urgent boolean NOT NULL DEFAULT false

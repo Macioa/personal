@@ -1,3 +1,13 @@
+-- Display all timestamptz values in Central time (storage stays UTC).
+ALTER DATABASE postgres SET timezone TO 'America/Chicago';
+
+-- Store timestamps to the second.
+ALTER TABLE public.application_conversations
+  ALTER COLUMN occurred_at TYPE timestamptz(0);
+ALTER TABLE public.todolist
+  ALTER COLUMN target_date TYPE timestamptz(0),
+  ALTER COLUMN deadline_date TYPE timestamptz(0);
+
 -- Indexes and ON DELETE rules for tables defined in earlier migrations.
 
 CREATE INDEX applications_user_id_idx
