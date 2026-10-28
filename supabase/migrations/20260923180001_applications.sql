@@ -81,7 +81,9 @@ CREATE TABLE public.application_interviews (
   meeting_service public.meeting_service,
   meeting_link text,
   meeting_invite text,
-  meeting_notes text
+  meeting_notes text,
+  scheduled_at timestamptz(0),
+  duration interval
 );
 
 CREATE TABLE public.application_conversations (
@@ -106,6 +108,25 @@ CREATE TABLE public.todolist (
   completed boolean NOT NULL DEFAULT false,
   urgent boolean NOT NULL DEFAULT false
 );
+COMMENT ON TABLE public.todolist IS 'Todos. Read: get_day_overview.';
+
+-- Scheduled interviews + unfinished todos for one day, ordered by time.
+CREATE FUNCTION public.get_day_overview(day date, with_detail boolean DEFAULT false)
+RETURNS TABLE (id uuid, name text, "time" timestamptz, duration interval, detail text)
+LANGUAGE sql STABLE SET search_path = public AS $$
+  SELECT i.id, a.company || ' ' || i.type || ' interview', i.scheduled_at, i.duration,
+    CASE WHEN with_detail THEN i.meeting_notes END
+  FROM application_interviews i
+  JOIN applications a ON a.id = i.application_id
+  WHERE i.scheduled_at >= day AND i.scheduled_at < day + 1
+  UNION ALL
+  SELECT t.id, t.name, t.target_date, t.time_estimate,
+    CASE WHEN with_detail THEN t.description END
+  FROM todolist t
+  WHERE NOT t.completed AND t.target_date >= day AND t.target_date < day + 1
+  ORDER BY 3
+$$;
+COMMENT ON FUNCTION public.get_day_overview(date, boolean) IS 'Day schedule. with_detail: add notes.';
 
 CREATE TABLE public.personal_info_and_docs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

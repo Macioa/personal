@@ -1,0 +1,13 @@
+{
+  "_note": "Disabled MCP servers. Not loaded by Claude Code. To re-enable, move an entry back into .mcp.json mcpServers.",
+  "mcpServers": {
+    "supabase-resume": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "${RESUME_DB_URL}"
+      ]
+    }
+  }
+}

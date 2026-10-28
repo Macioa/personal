@@ -5,7 +5,7 @@
 
 Delete user-specified Supabase rows (MCP; schema `supabase/migrations/`), JSONL backup first.
 
-1. **Scope.** Spec → `WHERE` per table; unclear → ask. FK children/link tables (migrations or `information_schema`): include only on yes.
+1. **Scope.** Spec → `WHERE` per table; unclear → ask. Spec date → also `todolist` `completed` with `target_date` before it. FK children/link tables (migrations or `information_schema`): include only on yes.
 2. **Preview.** `SELECT *` matches. Per table: count + rows (key cols; full on request) + exact `DELETE`. Stop for yes; scope change → 1.
 3. **Back up.** `backups/db-<YYYY-MM-DD>-<slug>[-2…].jsonl`, one line per row as selected:
    `{"table":"<schema.table>","deleted_at":"<ISO-8601>","row":{...}}`

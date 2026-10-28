@@ -110,6 +110,8 @@ REVOKE EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.abuse_computed_score(smallint, text[], public.abuse_confidence)
   FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_day_overview(date, boolean)
+  FROM PUBLIC, anon, authenticated;
 
 -- New objects created by postgres start with no anon/authenticated access.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
@@ -125,6 +127,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 --   ALTER ROLE resume_reader PASSWORD '...';
 -- ---------------------------------------------------------------------------
 CREATE ROLE resume_reader LOGIN NOINHERIT;
+-- Lets PostgREST switch to resume_reader for get-llm-token JWTs.
+GRANT resume_reader TO authenticator;
 
 GRANT USAGE ON SCHEMA public TO resume_reader;
 GRANT SELECT ON TABLE public.employer TO resume_reader;
