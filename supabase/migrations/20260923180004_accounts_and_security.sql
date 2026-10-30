@@ -108,6 +108,8 @@ REVOKE EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode)
   FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_all_skills()
+  FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.abuse_computed_score(smallint, text[], public.abuse_confidence)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_day_overview(date, boolean)
@@ -139,6 +141,7 @@ GRANT SELECT ON TABLE public.skills TO resume_reader;
 GRANT SELECT ON TABLE public.skill_links TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.get_all_skills() TO resume_reader;
 GRANT SELECT ON TABLE public.pitches TO resume_reader;
 GRANT SELECT ON TABLE public.pitch_skills TO resume_reader;
 GRANT SELECT ON TABLE public.pitch_evidence TO resume_reader;

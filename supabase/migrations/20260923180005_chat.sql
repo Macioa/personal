@@ -11,6 +11,7 @@ GRANT chat TO authenticator;
 GRANT USAGE ON SCHEMA public TO chat;
 GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO chat;
 GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO chat;
+GRANT EXECUTE ON FUNCTION public.get_all_skills() TO chat;
 GRANT EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) TO chat;
 
 GRANT SELECT ON TABLE public.employer TO chat;

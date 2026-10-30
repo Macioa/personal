@@ -269,6 +269,15 @@ AS $$
   CROSS JOIN LATERAL public.get_skill(u.skill, p_mode) AS g;
 $$;
 
+CREATE OR REPLACE FUNCTION public.get_all_skills()
+RETURNS text[]
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT coalesce(array_agg(s.name ORDER BY s.name), '{}')
+  FROM public.skills s;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Pitches: user-written guidance for producing job-specific material
 -- ---------------------------------------------------------------------------
