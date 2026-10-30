@@ -72,7 +72,8 @@ CREATE TABLE public.skills (
   "desc" text,
   type public.skill_type,
   skill_group text,
-  private boolean NOT NULL DEFAULT false
+  private boolean NOT NULL DEFAULT false,
+  priority integer
 );
 
 CREATE TABLE public.education_and_training (
@@ -173,16 +174,7 @@ COMMENT ON COLUMN public.skill_links.private IS
 CREATE OR REPLACE FUNCTION public.get_skill(
   p_skill text,
   p_mode public.skill_usage_mode DEFAULT 'start_to_end'
-) RETURNS TABLE (
-  skill_id uuid,
-  name text,
-  "desc" text,
-  type public.skill_type,
-  skill_group text,
-  first_used integer,
-  last_used integer,
-  total_years integer
-)
+) RETURNS SETOF jsonb
 LANGUAGE sql
 STABLE
 AS $$
@@ -240,12 +232,18 @@ AS $$
     FROM merged
     GROUP BY skill_id
   )
-  SELECT s.id, s.name, s."desc", s.type, s.skill_group,
-    extract(year FROM a.first_used)::integer, extract(year FROM a.last_used)::integer,
-    ceil(CASE
+  SELECT jsonb_strip_nulls(jsonb_build_object(
+    'skill_id', s.id,
+    'name', s.name,
+    'desc', s."desc",
+    'type', s.type,
+    'skill_group', s.skill_group,
+    'first_used', extract(year FROM a.first_used)::integer,
+    'last_used', extract(year FROM a.last_used)::integer,
+    'total_years', ceil(CASE
       WHEN p_mode = 'precise'::public.skill_usage_mode THEN a.precise_days
       ELSE (a.last_used - a.first_used)
-    END / 365.25)::integer
+    END / 365.25)::integer))
   FROM s
   LEFT JOIN agg a ON a.skill_id = s.id;
 $$;
@@ -253,31 +251,35 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_skills(
   p_skills text[],
   p_mode public.skill_usage_mode DEFAULT 'start_to_end'
-) RETURNS TABLE (
-  skill_id uuid,
-  name text,
-  "desc" text,
-  type public.skill_type,
-  skill_group text,
-  first_used integer,
-  last_used integer,
-  total_years integer
-)
+) RETURNS SETOF jsonb
 LANGUAGE sql
 STABLE
 AS $$
-  SELECT g.*
+  SELECT jsonb_strip_nulls(jsonb_build_object(
+    'id', g->'skill_id',
+    'nm', g->'name',
+    'dsc', g->'desc',
+    't', g->'type',
+    'grp', g->'skill_group',
+    'from', g->'first_used',
+    'to', g->'last_used',
+    'yrs', g->'total_years'))
   FROM unnest(p_skills) AS u(skill)
   CROSS JOIN LATERAL public.get_skill(u.skill, p_mode) AS g;
 $$;
 
 CREATE OR REPLACE FUNCTION public.get_all_skills()
-RETURNS text[]
+RETURNS SETOF jsonb
 LANGUAGE sql
 STABLE
 AS $$
-  SELECT coalesce(array_agg(s.name ORDER BY s.name), '{}')
-  FROM public.skills s;
+  SELECT jsonb_strip_nulls(jsonb_build_object(
+    'nm', g->'name',
+    'yrs', g->'total_years',
+    'pri', s.priority))
+  FROM public.skills s
+  CROSS JOIN LATERAL public.get_skill(s.name) AS g
+  ORDER BY g->>'name';
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -342,25 +344,25 @@ LANGUAGE sql
 STABLE
 AS $$
   SELECT p.slug, p.material,
-    (SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-        'name', g.name,
-        'group', g.skill_group,
-        'first_used', g.first_used,
-        'last_used', g.last_used,
-        'total_years', g.total_years)) ORDER BY g.skill_group NULLS LAST, g.name)
+    coalesce((SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+        'nm', g->'nm',
+        'grp', g->'grp',
+        'from', g->'from',
+        'to', g->'to',
+        'yrs', g->'yrs')) ORDER BY g->>'grp' NULLS LAST, g->>'nm')
       FROM public.get_skills(
         ARRAY(SELECT s.name FROM public.pitch_skills ps
               JOIN public.skills s ON s.id = ps.skill_id
               WHERE ps.pitch_id = p.id),
-        p_mode) AS g),
-    (SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+        p_mode) AS g), '[]'::jsonb),
+    coalesce((SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
         'employer', coalesce(e.name, te.name),
         'title', t.name,
-        'education', d.name,
+        'edu', d.name,
         'growth', gr.name,
-        'start_year', coalesce(t.start_year, e.start_year, d.start_year, gr.start_year),
-        'end_year', coalesce(t.end_year, e.end_year, d.end_year, gr.end_year),
-        'description', coalesce(t."desc", e.resume_desc, d.desc_long, gr.desc_long),
+        'from', coalesce(t.start_year, e.start_year, d.start_year, gr.start_year),
+        'to', coalesce(t.end_year, e.end_year, d.end_year, gr.end_year),
+        'dsc', coalesce(t."desc", e.resume_desc, d.desc_long, gr.desc_long),
         'note', pe.note)))
       FROM public.pitch_evidence pe
       LEFT JOIN public.employment_titles t ON t.id = pe.employment_title_id
@@ -368,7 +370,7 @@ AS $$
       LEFT JOIN public.employer e ON e.id = pe.employer_id
       LEFT JOIN public.education_and_training d ON d.id = pe.education_and_training_id
       LEFT JOIN public.personal_growth gr ON gr.id = pe.personal_growth_id
-      WHERE pe.pitch_id = p.id)
+      WHERE pe.pitch_id = p.id), '[]'::jsonb)
   FROM public.pitches p
   WHERE p.slug = ANY (p_slugs);
 $$;
