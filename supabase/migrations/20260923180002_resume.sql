@@ -168,7 +168,8 @@ COMMENT ON COLUMN public.skill_links.private IS
 -- Usage spans come from the linked row's dates. Missing start parts default to
 -- Jan 1; missing end parts default to the last day of the year/month; a null
 -- end_year means ongoing (today). precise = union of spans with overlaps
--- merged; start_to_end = last_used - first_used.
+-- merged; start_to_end = last_used - first_used. total_years = those days
+-- in years, rounded up.
 CREATE OR REPLACE FUNCTION public.get_skill(
   p_skill text,
   p_mode public.skill_usage_mode DEFAULT 'start_to_end'
@@ -178,9 +179,9 @@ CREATE OR REPLACE FUNCTION public.get_skill(
   "desc" text,
   type public.skill_type,
   skill_group text,
-  first_used date,
-  last_used date,
-  total_days integer
+  first_used integer,
+  last_used integer,
+  total_years integer
 )
 LANGUAGE sql
 STABLE
@@ -239,11 +240,12 @@ AS $$
     FROM merged
     GROUP BY skill_id
   )
-  SELECT s.id, s.name, s."desc", s.type, s.skill_group, a.first_used, a.last_used,
-    CASE
+  SELECT s.id, s.name, s."desc", s.type, s.skill_group,
+    extract(year FROM a.first_used)::integer, extract(year FROM a.last_used)::integer,
+    ceil(CASE
       WHEN p_mode = 'precise'::public.skill_usage_mode THEN a.precise_days
       ELSE (a.last_used - a.first_used)
-    END
+    END / 365.25)::integer
   FROM s
   LEFT JOIN agg a ON a.skill_id = s.id;
 $$;
@@ -257,9 +259,9 @@ CREATE OR REPLACE FUNCTION public.get_skills(
   "desc" text,
   type public.skill_type,
   skill_group text,
-  first_used date,
-  last_used date,
-  total_days integer
+  first_used integer,
+  last_used integer,
+  total_years integer
 )
 LANGUAGE sql
 STABLE
@@ -345,7 +347,7 @@ AS $$
         'group', g.skill_group,
         'first_used', g.first_used,
         'last_used', g.last_used,
-        'total_days', g.total_days)) ORDER BY g.skill_group NULLS LAST, g.name)
+        'total_years', g.total_years)) ORDER BY g.skill_group NULLS LAST, g.name)
       FROM public.get_skills(
         ARRAY(SELECT s.name FROM public.pitch_skills ps
               JOIN public.skills s ON s.id = ps.skill_id

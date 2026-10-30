@@ -10,3 +10,7 @@ temp/
 __pycache__/
 *.pyc
 backups/
+.mcp.json
+
+graphify-out/
+.claude/launch.json
