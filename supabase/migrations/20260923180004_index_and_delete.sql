@@ -89,6 +89,9 @@ CREATE INDEX abuse_impact_band_idx
 CREATE INDEX abuse_severity_band_idx
   ON public.abuse (severity_band);
 
+-- log_gemini_request() trims by sent_at.
+CREATE INDEX gemini_requests_sent_at_idx ON public.gemini_requests (sent_at);
+
 -- get_skill() matches on lower(name).
 CREATE INDEX skills_lower_name_idx
   ON public.skills (lower(name));

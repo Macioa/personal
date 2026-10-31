@@ -50,6 +50,9 @@ ALTER TABLE public.skill_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pitches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pitch_skills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pitch_evidence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inbound_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.faq ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.gemini_requests ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.applications FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.application_interviews FORCE ROW LEVEL SECURITY;
@@ -74,6 +77,9 @@ ALTER TABLE public.skill_links FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.pitches FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.pitch_skills FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.pitch_evidence FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.inbound_messages FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.faq FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.gemini_requests FORCE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.applications FROM anon, authenticated;
 REVOKE ALL ON TABLE public.application_interviews FROM anon, authenticated;
@@ -99,6 +105,9 @@ REVOKE ALL ON TABLE public.pitches FROM anon, authenticated;
 REVOKE ALL ON TABLE public.pitch_skills FROM anon, authenticated;
 REVOKE ALL ON TABLE public.pitch_evidence FROM anon, authenticated;
 REVOKE ALL ON TABLE public.pitch_catalog FROM anon, authenticated;
+REVOKE ALL ON TABLE public.inbound_messages FROM anon, authenticated;
+REVOKE ALL ON TABLE public.faq FROM anon, authenticated;
+REVOKE ALL ON TABLE public.gemini_requests FROM anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode)
   FROM PUBLIC, anon, authenticated;
 
@@ -114,6 +123,13 @@ REVOKE EXECUTE ON FUNCTION public.abuse_computed_score(smallint, text[], public.
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_day_overview(date, boolean)
   FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.send_message(text, text)
+  FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_faq(text) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_faqs(text[]) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_all_faqs() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_gemini_usage() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.log_gemini_request() FROM PUBLIC, anon, authenticated;
 
 -- New objects created by postgres start with no anon/authenticated access.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
@@ -204,3 +220,59 @@ CREATE POLICY resume_reader_select ON public.pitch_evidence
     AND (personal_growth_id IS NULL
       OR EXISTS (SELECT 1 FROM public.personal_growth g WHERE g.id = personal_growth_id))
   );
+
+-- ---------------------------------------------------------------------------
+-- chat: login role for a career chat. Only the career functions plus the
+-- tables they read (functions are SECURITY INVOKER), with resume_reader's
+-- non-private row filters. Set its password out of band:
+--   ALTER ROLE chat PASSWORD '...';
+-- ---------------------------------------------------------------------------
+CREATE ROLE chat LOGIN NOINHERIT;
+-- Lets PostgREST switch to chat for get-llm-token JWTs.
+GRANT chat TO authenticator;
+
+GRANT USAGE ON SCHEMA public TO chat;
+GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO chat;
+GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO chat;
+GRANT EXECUTE ON FUNCTION public.get_all_skills() TO chat;
+GRANT EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) TO chat;
+
+GRANT SELECT ON TABLE public.employer TO chat;
+GRANT SELECT ON TABLE public.employment_titles TO chat;
+GRANT SELECT ON TABLE public.education_and_training TO chat;
+GRANT SELECT ON TABLE public.personal_growth TO chat;
+GRANT SELECT ON TABLE public.skills TO chat;
+GRANT SELECT ON TABLE public.skill_links TO chat;
+GRANT SELECT ON TABLE public.pitches TO chat;
+GRANT SELECT ON TABLE public.pitch_skills TO chat;
+GRANT SELECT ON TABLE public.pitch_evidence TO chat;
+GRANT SELECT ON TABLE public.pitch_catalog TO chat;
+
+-- Share resume_reader's private-row filters.
+ALTER POLICY resume_reader_select ON public.employer TO resume_reader, chat;
+ALTER POLICY resume_reader_select ON public.employment_titles TO resume_reader, chat;
+ALTER POLICY resume_reader_select ON public.education_and_training TO resume_reader, chat;
+ALTER POLICY resume_reader_select ON public.personal_growth TO resume_reader, chat;
+ALTER POLICY resume_reader_select ON public.skills TO resume_reader, chat;
+ALTER POLICY resume_reader_select ON public.skill_links TO resume_reader, chat;
+ALTER POLICY resume_reader_select ON public.pitches TO resume_reader, chat;
+ALTER POLICY resume_reader_select ON public.pitch_skills TO resume_reader, chat;
+ALTER POLICY resume_reader_select ON public.pitch_evidence TO resume_reader, chat;
+
+-- Write-only: chat can log messages but not read them back.
+GRANT EXECUTE ON FUNCTION public.send_message(text, text) TO chat;
+GRANT INSERT ON TABLE public.inbound_messages TO chat;
+CREATE POLICY chat_insert ON public.inbound_messages
+  FOR INSERT TO chat
+  WITH CHECK (true);
+
+GRANT SELECT ON TABLE public.faq TO chat;
+CREATE POLICY chat_read ON public.faq FOR SELECT TO chat USING (true);
+GRANT EXECUTE ON FUNCTION public.get_faq(text) TO chat;
+GRANT EXECUTE ON FUNCTION public.get_faqs(text[]) TO chat;
+GRANT EXECUTE ON FUNCTION public.get_all_faqs() TO chat;
+
+GRANT SELECT, INSERT, DELETE ON TABLE public.gemini_requests TO chat;
+CREATE POLICY chat_window ON public.gemini_requests FOR ALL TO chat USING (true) WITH CHECK (true);
+GRANT EXECUTE ON FUNCTION public.get_gemini_usage() TO chat;
+GRANT EXECUTE ON FUNCTION public.log_gemini_request() TO chat;
