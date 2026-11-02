@@ -272,7 +272,8 @@ GRANT EXECUTE ON FUNCTION public.get_faq(text) TO chat;
 GRANT EXECUTE ON FUNCTION public.get_faqs(text[]) TO chat;
 GRANT EXECUTE ON FUNCTION public.get_all_faqs() TO chat;
 
-GRANT SELECT, INSERT, DELETE ON TABLE public.gemini_requests TO chat;
-CREATE POLICY chat_window ON public.gemini_requests FOR ALL TO chat USING (true) WITH CHECK (true);
+-- Read-only: chat writes the window only through log_gemini_request.
+GRANT SELECT ON TABLE public.gemini_requests TO chat;
+CREATE POLICY chat_read ON public.gemini_requests FOR SELECT TO chat USING (true);
 GRANT EXECUTE ON FUNCTION public.get_gemini_usage() TO chat;
 GRANT EXECUTE ON FUNCTION public.log_gemini_request() TO chat;

@@ -1,7 +1,8 @@
 -- ---------------------------------------------------------------------------
 -- gemini_requests: sliding window log of every Gemini call the homepage chat
 -- makes (each model turn, not just each visitor message). The site has no
--- login, so all visitors share one window. Only the chat role can touch it.
+-- login, so all visitors share one window. The chat role reads it and writes
+-- only through log_gemini_request (SECURITY DEFINER), so it can't reset it.
 --   log_gemini_request()  logs one call, drops expired rows, returns usage
 --   get_gemini_usage()    { now, used: [{ id, sent_at, expires_at }] } for
 --                         the calls still inside the 1-minute window
@@ -36,7 +37,7 @@ CREATE FUNCTION public.log_gemini_request()
 RETURNS jsonb
 LANGUAGE plpgsql
 VOLATILE
-SECURITY INVOKER
+SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
