@@ -110,6 +110,8 @@ REVOKE ALL ON TABLE public.faq FROM anon, authenticated;
 REVOKE ALL ON TABLE public.gemini_requests FROM anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode)
   FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_all_pitches() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_pitches(text[]) FROM PUBLIC, anon, authenticated;
 
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
 
@@ -163,6 +165,8 @@ GRANT SELECT ON TABLE public.pitch_skills TO resume_reader;
 GRANT SELECT ON TABLE public.pitch_evidence TO resume_reader;
 GRANT SELECT ON TABLE public.pitch_catalog TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.get_all_pitches() TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.get_pitches(text[]) TO resume_reader;
 
 CREATE POLICY resume_reader_select ON public.employer
   FOR SELECT TO resume_reader
@@ -236,6 +240,8 @@ GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO cha
 GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO chat;
 GRANT EXECUTE ON FUNCTION public.get_all_skills() TO chat;
 GRANT EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) TO chat;
+GRANT EXECUTE ON FUNCTION public.get_all_pitches() TO chat;
+GRANT EXECUTE ON FUNCTION public.get_pitches(text[]) TO chat;
 
 GRANT SELECT ON TABLE public.employer TO chat;
 GRANT SELECT ON TABLE public.employment_titles TO chat;

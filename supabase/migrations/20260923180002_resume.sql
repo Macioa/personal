@@ -269,17 +269,19 @@ AS $$
 $$;
 
 CREATE OR REPLACE FUNCTION public.get_all_skills()
-RETURNS SETOF jsonb
+RETURNS jsonb
 LANGUAGE sql
 STABLE
 AS $$
-  SELECT jsonb_strip_nulls(jsonb_build_object(
-    'nm', g->'name',
-    'yrs', g->'total_years',
-    'pri', s.priority))
+  SELECT jsonb_build_object(
+    'msg', 'in order',
+    'res', coalesce(jsonb_agg(g->'name'
+      ORDER BY s.priority NULLS LAST,
+        (g->>'total_years')::integer DESC NULLS LAST,
+        (g->>'last_used')::integer DESC NULLS LAST,
+        g->>'name'), '[]'::jsonb))
   FROM public.skills s
-  CROSS JOIN LATERAL public.get_skill(s.name) AS g
-  ORDER BY g->>'name';
+  CROSS JOIN LATERAL public.get_skill(s.name) AS g;
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -375,6 +377,37 @@ AS $$
   WHERE p.slug = ANY (p_slugs);
 $$;
 
+CREATE OR REPLACE FUNCTION public.get_all_pitches()
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+      'slug', p.slug,
+      'type', p.type,
+      'title', p.title,
+      'use_when', p.use_when))
+    ORDER BY p.type, p.slug), '[]'::jsonb)
+  FROM public.pitches p;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_pitches(p_slugs text[])
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+      'slug', p.slug,
+      'type', p.type,
+      'title', p.title,
+      'use_when', p.use_when,
+      'material', p.material,
+      'keywords', to_jsonb(nullif(p.keywords, '{}'))))
+    ORDER BY p.type, p.slug), '[]'::jsonb)
+  FROM public.pitches p
+  WHERE p.slug = ANY (p_slugs);
+$$;
+
 COMMENT ON TABLE public.pitches IS
   'Select pitches that fit the job post; write the output from them.';
 COMMENT ON COLUMN public.pitches.slug IS
@@ -395,4 +428,8 @@ COMMENT ON VIEW public.pitch_catalog IS
   'Used for finding appropriate pitches.';
 COMMENT ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) IS
   'Read for selected pitches before writing. p_mode sets skill durations; one mode per output.';
+COMMENT ON FUNCTION public.get_all_pitches() IS
+  'Used for choosing pitches for a job post. Then pitch_detail(slugs, mode) for the picked ones.';
+COMMENT ON FUNCTION public.get_pitches(text[]) IS
+  'Pitch text for the given slugs, without skills or evidence. Use pitch_detail for those.';
 
