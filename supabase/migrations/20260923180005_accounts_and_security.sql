@@ -145,7 +145,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
 --   ALTER ROLE resume_reader PASSWORD '...';
 -- ---------------------------------------------------------------------------
 CREATE ROLE resume_reader LOGIN NOINHERIT;
--- Lets PostgREST switch to resume_reader for get-llm-token JWTs.
+-- Lets PostgREST switch to resume_reader for get-jwt JWTs.
 GRANT resume_reader TO authenticator;
 
 GRANT USAGE ON SCHEMA public TO resume_reader;
@@ -228,7 +228,7 @@ CREATE POLICY resume_reader_select ON public.pitch_evidence
 --   ALTER ROLE chat PASSWORD '...';
 -- ---------------------------------------------------------------------------
 CREATE ROLE chat LOGIN NOINHERIT;
--- Lets PostgREST switch to chat for get-llm-token JWTs.
+-- Lets PostgREST switch to chat for get-jwt JWTs.
 GRANT chat TO authenticator;
 
 GRANT USAGE ON SCHEMA public TO chat;
