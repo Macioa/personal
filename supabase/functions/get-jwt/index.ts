@@ -8,6 +8,8 @@
 //   RESUME_READER_KEY resume_reader tokens need header x-token-key = this.
 //                     Unset = resume_reader tokens disabled.
 //   ALLOWED_ORIGINS   comma list of allowed Origin values. Unset = any origin.
+//   JWT_PROXY_SECRET  requests need header x-proxy-secret = this (sent by the
+//                     homepage's /api/get-jwt Netlify proxy). Unset = not required.
 import { SignJWT } from "npm:jose@5.9.6";
 
 const TTL_SECONDS = 60 * 60;
@@ -33,7 +35,7 @@ function json(body: unknown, status: number, headers: Record<string, string>) {
   });
 }
 
-// Constant-time compare for the resume_reader key.
+// Constant-time compare for the resume_reader key and proxy secret.
 function safeEqual(a: string, b: string): boolean {
   const x = new TextEncoder().encode(a);
   const y = new TextEncoder().encode(b);
@@ -52,6 +54,11 @@ Deno.serve(async (req) => {
   }
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return json({ error: "POST only" }, 405, headers);
+
+  const proxySecret = Deno.env.get("JWT_PROXY_SECRET");
+  if (proxySecret && !safeEqual(req.headers.get("x-proxy-secret") ?? "", proxySecret)) {
+    return json({ error: "forbidden" }, 403, headers);
+  }
 
   const secret = Deno.env.get("LLM_JWT_SECRET");
   if (!secret) return json({ error: "not configured" }, 500, headers);
