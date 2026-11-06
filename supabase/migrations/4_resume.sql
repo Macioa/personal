@@ -1,29 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- Career history: employers, titles, portals, skills, education, growth
 -- ---------------------------------------------------------------------------
-CREATE TYPE public.skill_type AS ENUM (
-  'hard',
-  'soft',
-  'both',
-  'other'
-);
-
-CREATE TYPE public.education_type AS ENUM (
-  'bachelors',
-  'masters',
-  'phd',
-  'training',
-  'certificate',
-  'training_certificate',
-  'clearance',
-  'other'
-);
-
-CREATE TYPE public.skill_usage_mode AS ENUM (
-  'precise',
-  'start_to_end'
-);
-
 CREATE TABLE public.employer (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text,
@@ -287,15 +264,6 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Pitches: user-written guidance for producing job-specific material
 -- ---------------------------------------------------------------------------
-CREATE TYPE public.pitch_type AS ENUM (
-  'technical',
-  'leadership',
-  'delivery',
-  'domain',
-  'collaboration',
-  'other'
-);
-
 CREATE TABLE public.pitches (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug text NOT NULL UNIQUE,

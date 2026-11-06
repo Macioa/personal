@@ -7,12 +7,6 @@
 -- ---------------------------------------------------------------------------
 -- Account-specific values
 -- ---------------------------------------------------------------------------
--- Labels only. Real mailbox addresses stay in the database, not in git.
-CREATE TYPE public.personal_email_used AS ENUM (
-  'outlook',
-  'gmail'
-);
-
 ALTER TABLE public.applications
   ADD COLUMN which_personal_email_used public.personal_email_used;
 
@@ -53,6 +47,13 @@ ALTER TABLE public.pitch_evidence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inbound_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.faq ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.gemini_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.backups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.backup_sources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transcripts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.backup_transcripts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transcript_speakers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transcript_turns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transcript_chunks ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.applications FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.application_interviews FORCE ROW LEVEL SECURITY;
@@ -80,6 +81,13 @@ ALTER TABLE public.pitch_evidence FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.inbound_messages FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.faq FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.gemini_requests FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.backups FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.backup_sources FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.transcripts FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.backup_transcripts FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.transcript_speakers FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.transcript_turns FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.transcript_chunks FORCE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.applications FROM anon, authenticated;
 REVOKE ALL ON TABLE public.application_interviews FROM anon, authenticated;
@@ -108,6 +116,13 @@ REVOKE ALL ON TABLE public.pitch_catalog FROM anon, authenticated;
 REVOKE ALL ON TABLE public.inbound_messages FROM anon, authenticated;
 REVOKE ALL ON TABLE public.faq FROM anon, authenticated;
 REVOKE ALL ON TABLE public.gemini_requests FROM anon, authenticated;
+REVOKE ALL ON TABLE public.backups FROM anon, authenticated;
+REVOKE ALL ON TABLE public.backup_sources FROM anon, authenticated;
+REVOKE ALL ON TABLE public.transcripts FROM anon, authenticated;
+REVOKE ALL ON TABLE public.backup_transcripts FROM anon, authenticated;
+REVOKE ALL ON TABLE public.transcript_speakers FROM anon, authenticated;
+REVOKE ALL ON TABLE public.transcript_turns FROM anon, authenticated;
+REVOKE ALL ON TABLE public.transcript_chunks FROM anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_all_pitches() FROM PUBLIC, anon, authenticated;
@@ -132,6 +147,11 @@ REVOKE EXECUTE ON FUNCTION public.get_faqs(text[]) FROM PUBLIC, anon, authentica
 REVOKE EXECUTE ON FUNCTION public.get_all_faqs() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_gemini_usage() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.log_gemini_request() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.transcript_context(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.search_transcripts(text, extensions.vector, integer, text, uuid[])
+  FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_transcript_window(uuid, numeric, numeric, numeric)
+  FROM PUBLIC, anon, authenticated;
 
 -- New objects created by postgres start with no anon/authenticated access.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
@@ -283,3 +303,51 @@ GRANT SELECT ON TABLE public.gemini_requests TO chat;
 CREATE POLICY chat_read ON public.gemini_requests FOR SELECT TO chat USING (true);
 GRANT EXECUTE ON FUNCTION public.get_gemini_usage() TO chat;
 GRANT EXECUTE ON FUNCTION public.log_gemini_request() TO chat;
+
+-- ---------------------------------------------------------------------------
+-- transcriber: login role for scripts/vector (ingest + search). Direct DB
+-- connection, not PostgREST. Writes transcripts; reads backups. backups and
+-- backup_sources are written only through the MCP. No UPDATE: relabel = re-ingest.
+-- Set its password out of band:
+--   ALTER ROLE transcriber PASSWORD '...';
+-- ---------------------------------------------------------------------------
+CREATE ROLE transcriber LOGIN NOINHERIT;
+
+GRANT USAGE ON SCHEMA public TO transcriber;
+-- vector type and <=> operator.
+GRANT USAGE ON SCHEMA extensions TO transcriber;
+GRANT EXECUTE ON FUNCTION public.transcript_context(uuid) TO transcriber;
+GRANT EXECUTE ON FUNCTION public.search_transcripts(text, extensions.vector, integer, text, uuid[]) TO transcriber;
+GRANT EXECUTE ON FUNCTION public.get_transcript_window(uuid, numeric, numeric, numeric) TO transcriber;
+
+GRANT SELECT, INSERT, DELETE ON TABLE public.transcripts TO transcriber;
+GRANT SELECT, INSERT, DELETE ON TABLE public.transcript_speakers TO transcriber;
+GRANT SELECT, INSERT, DELETE ON TABLE public.transcript_turns TO transcriber;
+GRANT SELECT, INSERT, DELETE ON TABLE public.transcript_chunks TO transcriber;
+GRANT SELECT, INSERT ON TABLE public.backup_transcripts TO transcriber;
+GRANT SELECT ON TABLE public.backups TO transcriber;
+
+-- Grants above limit the verbs each policy allows.
+CREATE POLICY transcriber_all ON public.transcripts
+  FOR ALL TO transcriber
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY transcriber_all ON public.transcript_speakers
+  FOR ALL TO transcriber
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY transcriber_all ON public.transcript_turns
+  FOR ALL TO transcriber
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY transcriber_all ON public.transcript_chunks
+  FOR ALL TO transcriber
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY transcriber_all ON public.backup_transcripts
+  FOR ALL TO transcriber
+  USING (true) WITH CHECK (true);
+
+CREATE POLICY transcriber_read ON public.backups
+  FOR SELECT TO transcriber
+  USING (true);

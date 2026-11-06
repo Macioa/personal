@@ -96,6 +96,21 @@ CREATE INDEX gemini_requests_sent_at_idx ON public.gemini_requests (sent_at);
 CREATE INDEX skills_lower_name_idx
   ON public.skills (lower(name));
 
+CREATE INDEX transcript_turns_speaker_idx
+  ON public.transcript_turns (transcript_id, speaker_no);
+
+-- search_transcripts() vector leg (cosine).
+CREATE INDEX transcript_chunks_embedding_idx
+  ON public.transcript_chunks USING hnsw (embedding extensions.vector_cosine_ops);
+
+-- search_transcripts() keyword leg.
+CREATE INDEX transcript_chunks_fts_idx
+  ON public.transcript_chunks USING gin (fts);
+
+-- At most one self speaker per transcript.
+CREATE UNIQUE INDEX transcript_speakers_one_self_idx
+  ON public.transcript_speakers (transcript_id) WHERE is_self;
+
 -- ---------------------------------------------------------------------------
 -- Delete rules
 -- ---------------------------------------------------------------------------
