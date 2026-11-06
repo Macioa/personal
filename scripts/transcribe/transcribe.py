@@ -28,18 +28,33 @@ def ensure_models():
         urllib.request.urlretrieve(REL + "speaker-recongition-models/nemo_en_titanet_small.onnx", EMB)
 
 
-# Speaker turns (start, end, speaker) from 16 kHz mono audio
-def diarize(audio, n_spk):
+# Speaker turns (start, end, speaker) from 16 kHz mono audio.
+# auto_threshold (per format): auto cluster count (forcing n_spk lets one outlier take a slot),
+# then keep the n_spk largest clusters and relabel the rest to the nearest major segment in time.
+def diarize(audio, n_spk, auto_threshold=None):
     import sherpa_onnx
     ensure_models()
+    auto = auto_threshold is not None
     cfg = sherpa_onnx.OfflineSpeakerDiarizationConfig(
         segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
             pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(model=str(SEG))),
         embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(model=str(EMB)),
-        clustering=sherpa_onnx.FastClusteringConfig(num_clusters=n_spk, threshold=0.5),
+        clustering=sherpa_onnx.FastClusteringConfig(num_clusters=-1 if auto else n_spk,
+                                                    threshold=auto_threshold if auto else 0.5),
         min_duration_on=0.3, min_duration_off=0.5)
     result = sherpa_onnx.OfflineSpeakerDiarization(cfg).process(audio).sort_by_start_time()
-    return [(t.start, t.end, t.speaker) for t in result]
+    turns = [(t.start, t.end, t.speaker) for t in result]
+    if not auto or n_spk < 1:
+        return turns
+    total = {}
+    for a, b, s in turns:
+        total[s] = total.get(s, 0) + b - a
+    major = set(sorted(total, key=total.get, reverse=True)[:n_spk])
+    keep = [t for t in turns if t[2] in major]
+    if not keep:
+        return turns
+    gap = lambda a, b, t: max(t[0] - b, a - t[1], 0)
+    return [(a, b, s if s in major else min(keep, key=lambda t: gap(a, b, t))[2]) for a, b, s in turns]
 
 
 # Word-timestamped transcript (optional VAD skips silence; timeline preserved)
@@ -61,16 +76,18 @@ def speaker_of(a, b, turns):
     return min(turns, key=lambda t: min(abs(a - t[1]), abs(b - t[0])))[2]
 
 
-# Merge consecutive same-speaker words into turns
+# Merge consecutive same-speaker words into turns; keep [start, end] per word for chunking
 def group(words, turns):
     out = []
     for w in words:
         s = speaker_of(w.start, w.end, turns)
+        wt = [round(w.start, 2), round(w.end, 2)]
         if out and out[-1]["speaker"] == s and w.start - out[-1]["end"] < 2.0:
             out[-1]["text"] += w.word
             out[-1]["end"] = w.end
+            out[-1]["words"].append(wt)
         else:
-            out.append({"speaker": s, "start": w.start, "end": w.end, "text": w.word})
+            out.append({"speaker": s, "start": w.start, "end": w.end, "text": w.word, "words": [wt]})
     return renumber(out)
 
 

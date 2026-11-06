@@ -14,6 +14,8 @@ OS = {"Windows": "windows", "Darwin": "mac"}
 VAD = {"windows": {"vad": True}, "mac": {"vad": True}, "amr": {"vad": False}}
 # Per-format default whisper model: phone audio needs the larger model
 MODEL = {"windows": "small", "mac": "small", "amr": "large-v3-turbo"}
+# Per-format diarization: windows mixed mic+system audio collapses to one speaker when forced
+DIAR = {"windows": {"auto_threshold": 0.8}, "mac": {}, "amr": {}}
 
 
 # Parse CLI args with defaults
@@ -30,7 +32,7 @@ def main(src, n_spk, model, out_dir):
     dst = out_dir / src.stem
     fmt = reformat.detect(src)
     audio = reformat.load_audio(src, fmt)
-    turns = transcribe.diarize(audio, n_spk)
+    turns = transcribe.diarize(audio, n_spk, **DIAR[fmt])
     words = transcribe.words(audio, model or MODEL[fmt], **VAD[fmt])
     transcribe.write(transcribe.group(words, turns), dst)
     backup.backup(src, dst, fmt)
