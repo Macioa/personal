@@ -67,6 +67,12 @@ CREATE INDEX skill_links_personal_growth_id_idx
 CREATE INDEX pitch_skills_skill_id_idx
   ON public.pitch_skills (skill_id);
 
+CREATE INDEX project_skills_skill_id_idx
+  ON public.project_skills (skill_id);
+
+CREATE INDEX project_growth_personal_growth_id_idx
+  ON public.project_growth (personal_growth_id);
+
 CREATE INDEX pitch_evidence_pitch_id_idx
   ON public.pitch_evidence (pitch_id);
 

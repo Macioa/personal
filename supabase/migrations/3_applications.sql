@@ -22,8 +22,12 @@ CREATE TABLE public.applications (
   pending boolean NOT NULL DEFAULT true,
   rejected boolean NOT NULL DEFAULT false,
   rejection_reason text,
-  recruiting_agency text
+  recruiting_agency text,
+  direct_recruiter boolean DEFAULT NULL
 );
+
+COMMENT ON COLUMN public.applications.direct_recruiter IS
+  'Recruiter is in direct contact with hiring manager - is not an indirect third party agency';
 
 CREATE TABLE public.application_interviews (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -266,6 +270,7 @@ CREATE TABLE public.abuse (
   prioritized_job_details_over_candidate_details boolean NOT NULL DEFAULT false,
   false_or_deceptive_reporting boolean NOT NULL DEFAULT false,
   repetition_without_acknowledgement_of_repetition boolean NOT NULL DEFAULT false,
+  no_submission_confirmation boolean NOT NULL DEFAULT false,
   CONSTRAINT abuse_impact_band_range_chk
     CHECK (impact_band IS NULL OR impact_band BETWEEN 1 AND 5),
   CONSTRAINT abuse_severity_band_range_chk
@@ -353,4 +358,6 @@ COMMENT ON COLUMN public.abuse.false_or_deceptive_reporting IS
   'False or deceptive reporting.';
 COMMENT ON COLUMN public.abuse.repetition_without_acknowledgement_of_repetition IS
   'The same claim or request is repeated without acknowledging that it was already said.';
+COMMENT ON COLUMN public.abuse.no_submission_confirmation IS
+  'Did not receive submission confirmation after verbally told otherwise';
 

@@ -401,3 +401,60 @@ COMMENT ON FUNCTION public.get_all_pitches() IS
 COMMENT ON FUNCTION public.get_pitches(text[]) IS
   'Pitch text for the given slugs, without skills or evidence. Use pitch_detail for those.';
 
+-- ---------------------------------------------------------------------------
+-- Projects: portfolio work, linked to skills and growth
+-- ---------------------------------------------------------------------------
+CREATE TABLE public.projects (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name varchar(100) NOT NULL,
+  "desc" text,
+  problem_to_solve text,
+  -- intentional break of 3rd normal
+  key_features text[] NOT NULL DEFAULT '{}',
+  tools_used text[] NOT NULL DEFAULT '{}',
+  -- end intentional break of 3rd normal
+  live_url text,
+  source_url text,
+  private boolean NOT NULL DEFAULT false
+);
+
+CREATE TABLE public.project_skills (
+  project_id uuid NOT NULL REFERENCES public.projects (id) ON DELETE CASCADE,
+  skill_id uuid NOT NULL REFERENCES public.skills (id) ON DELETE CASCADE,
+  PRIMARY KEY (project_id, skill_id)
+);
+
+CREATE TABLE public.project_growth (
+  project_id uuid NOT NULL REFERENCES public.projects (id) ON DELETE CASCADE,
+  personal_growth_id uuid NOT NULL REFERENCES public.personal_growth (id) ON DELETE CASCADE,
+  PRIMARY KEY (project_id, personal_growth_id)
+);
+
+CREATE OR REPLACE FUNCTION public.get_projects()
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+      'name', p.name,
+      'desc', p."desc",
+      'problem_to_solve', p.problem_to_solve,
+      'key_features', to_jsonb(nullif(p.key_features, '{}')),
+      'tools_used', to_jsonb(nullif(p.tools_used, '{}')),
+      'live_url', p.live_url,
+      'source_url', p.source_url))
+    ORDER BY p.name), '[]'::jsonb)
+  FROM public.projects p;
+$$;
+
+COMMENT ON TABLE public.projects IS
+  'Portfolio projects. Read: get_projects().';
+COMMENT ON COLUMN public.projects.private IS
+  'True hides the row (and its skill/growth links) from resume_reader.';
+COMMENT ON TABLE public.project_skills IS
+  'Join table: projects to skills used.';
+COMMENT ON TABLE public.project_growth IS
+  'Join table: projects to personal_growth rows they came from.';
+COMMENT ON FUNCTION public.get_projects() IS
+  'All visible projects as a jsonb array, ordered by name.';
+
