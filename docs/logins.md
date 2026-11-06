@@ -10,3 +10,4 @@ From `installs.md` — login required only.
 
 ## CLI / local
 - `gh` (GitHub CLI)
+- `scripts/vector` — env `TRANSCRIBER_DB_URL` (Supabase `transcriber` role; password set out of band)
