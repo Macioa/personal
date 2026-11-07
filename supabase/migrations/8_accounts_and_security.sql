@@ -201,6 +201,7 @@ GRANT SELECT ON TABLE public.projects TO resume_reader;
 GRANT SELECT ON TABLE public.project_skills TO resume_reader;
 GRANT SELECT ON TABLE public.project_growth TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_projects() TO resume_reader;
+GRANT SELECT ON TABLE public.personal_info_and_docs TO resume_reader;
 
 CREATE POLICY resume_reader_select ON public.employer
   FOR SELECT TO resume_reader
@@ -268,6 +269,10 @@ CREATE POLICY resume_reader_select ON public.project_growth
   FOR SELECT TO resume_reader
   USING (EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id)
     AND EXISTS (SELECT 1 FROM public.personal_growth g WHERE g.id = personal_growth_id));
+
+CREATE POLICY resume_reader_select ON public.personal_info_and_docs
+  FOR SELECT TO resume_reader
+  USING (NOT private);
 
 -- -    AND (personal_growth_id IS NULL
       OR EXISTS (SELECT 1 FROM public.personal_growth g WHERE g.id = personal_growth_id))

@@ -97,8 +97,11 @@ CREATE TABLE public.personal_info_and_docs (
   content_blob bytea,
   content_blob_filename text,
   content_string text,
-  version integer NOT NULL DEFAULT 0
+  version integer NOT NULL DEFAULT 0,
+  private boolean NOT NULL DEFAULT false
 );
+COMMENT ON COLUMN public.personal_info_and_docs.private IS
+  'True hides the row from resume_reader.';
 
 CREATE TABLE public.logins (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
