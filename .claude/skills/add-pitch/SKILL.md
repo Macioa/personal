@@ -4,4 +4,4 @@ description: Add a pitch to Supabase using only what the user states or answers 
 disable-model-invocation: true
 ---
 
-Read `tasks/add-resume-info/add-pitch.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.
+Read `tasks/resume/injest/add-pitch.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.

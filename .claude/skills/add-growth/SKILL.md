@@ -4,4 +4,4 @@ description: Add a personal growth entry to Supabase using only what the user st
 disable-model-invocation: true
 ---
 
-Read `tasks/add-resume-info/add-growth.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.
+Read `tasks/resume/injest/add-growth.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.

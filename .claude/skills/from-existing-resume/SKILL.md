@@ -4,4 +4,4 @@ description: Propose resume and personal info rows from an existing resume; ente
 disable-model-invocation: true
 ---
 
-Read `tasks/add-resume-info/from-existing-resume.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.
+Read `tasks/resume/injest/from-existing-resume.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.
