@@ -73,6 +73,9 @@ CREATE INDEX project_skills_skill_id_idx
 CREATE INDEX project_growth_personal_growth_id_idx
   ON public.project_growth (personal_growth_id);
 
+CREATE INDEX pitch_projects_project_id_idx
+  ON public.pitch_projects (project_id);
+
 CREATE INDEX pitch_evidence_pitch_id_idx
   ON public.pitch_evidence (pitch_id);
 
@@ -86,8 +89,8 @@ CREATE INDEX pitch_evidence_employer_id_idx
 CREATE INDEX pitch_evidence_education_and_training_id_idx
   ON public.pitch_evidence (education_and_training_id);
 
-CREATE INDEX pitch_evidence_personal_growth_id_idx
-  ON public.pitch_evidence (personal_growth_id);
+CREATE INDEX pitch_growth_personal_growth_id_idx
+  ON public.pitch_growth (personal_growth_id);
 
 CREATE INDEX abuse_impact_band_idx
   ON public.abuse (impact_band);
@@ -151,10 +154,7 @@ ALTER TABLE public.pitch_evidence
     FOREIGN KEY (employer_id) REFERENCES public.employer (id) ON DELETE CASCADE,
   DROP CONSTRAINT pitch_evidence_education_and_training_id_fkey,
   ADD CONSTRAINT pitch_evidence_education_and_training_id_fkey
-    FOREIGN KEY (education_and_training_id) REFERENCES public.education_and_training (id) ON DELETE CASCADE,
-  DROP CONSTRAINT pitch_evidence_personal_growth_id_fkey,
-  ADD CONSTRAINT pitch_evidence_personal_growth_id_fkey
-    FOREIGN KEY (personal_growth_id) REFERENCES public.personal_growth (id) ON DELETE CASCADE;
+    FOREIGN KEY (education_and_training_id) REFERENCES public.education_and_training (id) ON DELETE CASCADE;
 
 -- Rubric bands are fixed; block deleting one that scored rows still use.
 ALTER TABLE public.abuse

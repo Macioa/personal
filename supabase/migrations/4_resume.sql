@@ -85,7 +85,9 @@ CREATE TABLE public.education_and_training (
   end_month integer,
   end_year integer,
   remote boolean,
-  private boolean NOT NULL DEFAULT false
+  private boolean NOT NULL DEFAULT false,
+  gpa text NOT NULL DEFAULT 'N/A'
+    CONSTRAINT education_and_training_gpa_chk CHECK (gpa = 'N/A' OR gpa ~ '^[0-9]+(\.[0-9]+)?$')
 );
 
 CREATE TABLE public.personal_growth (
@@ -145,6 +147,8 @@ COMMENT ON COLUMN public.education_and_training.remote IS
   'True if attended remotely, false if onsite; null if unknown.';
 COMMENT ON COLUMN public.education_and_training.private IS
   'True hides the row (and its skill links) from resume_reader.';
+COMMENT ON COLUMN public.education_and_training.gpa IS
+  'GPA as a float string (e.g. 3.7), or N/A.';
 COMMENT ON COLUMN public.personal_growth.private IS
   'True hides the row (and its skill links) from resume_reader.';
 COMMENT ON COLUMN public.skills.type IS
@@ -262,24 +266,53 @@ AS $$
   CROSS JOIN LATERAL public.get_skill(u.skill, p_mode) AS g;
 $$;
 
+-- A group's other members (all but p_exclude_skill_id): merged years and top 3 by own years.
+CREATE OR REPLACE FUNCTION public.skill_group_summary(
+  p_group_id uuid,
+  p_exclude_skill_id uuid,
+  p_mode public.skill_usage_mode DEFAULT 'start_to_end'
+) RETURNS TABLE (yrs integer, examples text[])
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  WITH members AS (
+    SELECT s.id, s.name
+    FROM public.skill_group_members m
+    JOIN public.skills s ON s.id = m.skill_id
+    WHERE m.group_id = p_group_id AND m.skill_id IS DISTINCT FROM p_exclude_skill_id
+  )
+  SELECT
+    (SELECT u.total_years FROM public.skill_usage(ARRAY(SELECT id FROM members), p_mode) u),
+    ARRAY(SELECT mb.name
+          FROM members mb
+          CROSS JOIN LATERAL public.skill_usage(ARRAY[mb.id], p_mode) u
+          WHERE u.total_years IS NOT NULL
+          ORDER BY u.total_years DESC, mb.name
+          LIMIT 3);
+$$;
+
 -- Per term: the skill (exact name, else nearest by embedding) and its groups
 -- (or nearest groups if no skill), with years. Group years exclude the skill.
+-- Skill years use p_skill_mode (default precise); group years p_group_mode (default start_to_end).
 CREATE OR REPLACE FUNCTION public.search_skills(
   p_skills text[],
   p_embeddings extensions.vector(384)[] DEFAULT NULL,
-  p_mode public.skill_usage_mode DEFAULT 'start_to_end',
+  p_skill_mode public.skill_usage_mode DEFAULT 'precise',
+  p_group_mode public.skill_usage_mode DEFAULT 'start_to_end',
   p_group_limit integer DEFAULT 2,
-  p_min_sim double precision DEFAULT 0.9
+  p_min_sim double precision DEFAULT 0.9,
+  p_group_min_sim double precision DEFAULT 0.815
 ) RETURNS SETOF jsonb
 LANGUAGE sql
 STABLE
 SET search_path = ''
 AS $$
   WITH terms AS (
-    SELECT t.term, t.i, p_embeddings[t.i] AS emb
-    FROM unnest(p_skills) WITH ORDINALITY AS t(term, i)
+    SELECT t.term, t.term_no, p_embeddings[t.term_no] AS emb
+    FROM unnest(p_skills) WITH ORDINALITY AS t(term, term_no)
   ),
-  hit AS (
+  matched AS (
     SELECT t.*, coalesce(
       (SELECT s.id FROM public.skills s WHERE lower(s.name) = lower(t.term) LIMIT 1),
       (SELECT s.id FROM public.skills s
@@ -288,61 +321,58 @@ AS $$
        ORDER BY s.embedding OPERATOR(extensions.<=>) t.emb LIMIT 1)) AS skill_id
     FROM terms t
   ),
-  grps AS (
-    SELECT h.i, g.id, g.name, 0::double precision AS dist
-    FROM hit h
-    JOIN public.skill_group_members m ON m.skill_id = h.skill_id
+  candidate_groups AS (
+    -- Explicit groups of a matched skill; else nearest groups by embedding above p_group_min_sim.
+    SELECT mt.term_no, g.id AS group_id, g.name, 0::double precision AS dist
+    FROM matched mt
+    JOIN public.skill_group_members m ON m.skill_id = mt.skill_id
     JOIN public.skill_groups g ON g.id = m.group_id
     UNION ALL
-    SELECT h.i, n.id, n.name, n.dist
-    FROM hit h
+    SELECT mt.term_no, n.id, n.name, n.dist
+    FROM matched mt
     CROSS JOIN LATERAL (
-      SELECT g.id, g.name, g.embedding OPERATOR(extensions.<=>) h.emb AS dist
+      SELECT g.id, g.name, g.embedding OPERATOR(extensions.<=>) mt.emb AS dist
       FROM public.skill_groups g
       WHERE g.embedding IS NOT NULL
+        AND 1 - (g.embedding OPERATOR(extensions.<=>) mt.emb) >= p_group_min_sim
       ORDER BY 3 LIMIT p_group_limit) n
-    WHERE h.skill_id IS NULL AND h.emb IS NOT NULL
+    WHERE mt.skill_id IS NULL AND mt.emb IS NOT NULL
   ),
-  grp_yrs AS (
-    SELECT g.i, g.name, g.dist, u.total_years AS yrs,
-      -- Top 3 other members by their own years.
-      ARRAY(SELECT x.name FROM (
-        SELECT s.name, su.total_years
-        FROM public.skill_group_members m
-        JOIN public.skills s ON s.id = m.skill_id
-        CROSS JOIN LATERAL public.skill_usage(ARRAY[s.id], p_mode) su
-        WHERE m.group_id = g.id AND m.skill_id IS DISTINCT FROM h.skill_id
-          AND su.total_years IS NOT NULL
-        ORDER BY su.total_years DESC, s.name LIMIT 3) x) AS examples
-    FROM grps g
-    JOIN hit h ON h.i = g.i
-    CROSS JOIN LATERAL public.skill_usage(ARRAY(
-      SELECT m.skill_id FROM public.skill_group_members m
-      WHERE m.group_id = g.id AND m.skill_id IS DISTINCT FROM h.skill_id), p_mode) u
-    WHERE u.total_years IS NOT NULL
+  group_stats AS (
+    SELECT c.term_no, c.name, c.dist, gs.yrs, gs.examples
+    FROM candidate_groups c
+    JOIN matched mt ON mt.term_no = c.term_no
+    CROSS JOIN LATERAL public.skill_group_summary(c.group_id, mt.skill_id, p_group_mode) gs
+    WHERE gs.yrs IS NOT NULL
   ),
-  out AS (
-    SELECT h.i, h.term, s.name AS skill, u.total_years AS yrs,
-      (SELECT jsonb_agg(jsonb_build_object('name', y.name, 'yrs', y.yrs, 'examples', to_jsonb(y.examples))
-                        ORDER BY y.dist, y.yrs DESC)
-       FROM grp_yrs y WHERE y.i = h.i) AS groups,
-      (SELECT string_agg(' + Other ' || y.name || ' (' || array_to_string(y.examples, ', ')
-                         || ', total ' || y.yrs || ')', '' ORDER BY y.dist, y.yrs DESC)
-       FROM grp_yrs y WHERE y.i = h.i) AS grp_label
-    FROM hit h
-    LEFT JOIN public.skills s ON s.id = h.skill_id
-    LEFT JOIN LATERAL public.skill_usage(ARRAY[h.skill_id], p_mode) u ON h.skill_id IS NOT NULL
+  results AS (
+    SELECT mt.term_no, mt.term, s.name AS skill, u.total_years AS yrs,
+      (SELECT jsonb_agg(jsonb_build_object('name', g.name, 'yrs', g.yrs, 'examples', to_jsonb(g.examples))
+                        ORDER BY g.dist, g.yrs DESC)
+       FROM group_stats g WHERE g.term_no = mt.term_no) AS groups
+    FROM matched mt
+    LEFT JOIN public.skills s ON s.id = mt.skill_id
+    LEFT JOIN LATERAL public.skill_usage(ARRAY[mt.skill_id], p_skill_mode) u ON mt.skill_id IS NOT NULL
   )
+  -- Label from groups (single ordering): "AWS (2) + Other cloud services (GCP, total 4)".
+  -- No matching skill: the search term with 0 years, e.g. "Azure (0) + Other cloud services (...)".
   SELECT jsonb_strip_nulls(jsonb_build_object(
-    'term', term,
-    'skill', skill,
-    'yrs', yrs,
-    'groups', groups,
-    'label', coalesce(skill || coalesce(' (' || yrs || ')', ''), 'None') || coalesce(grp_label, '')))
-  FROM out ORDER BY i;
+    'term', r.term,
+    'skill', r.skill,
+    'yrs', r.yrs,
+    'groups', r.groups,
+    'label', coalesce(r.skill || coalesce(' (' || r.yrs || ')', ''), r.term || ' (0)')
+      || coalesce((
+        SELECT string_agg(' + Other ' || (g.grp->>'name') || ' ('
+                 || (SELECT string_agg(e.ex, ', ' ORDER BY e.ex_no)
+                     FROM jsonb_array_elements_text(g.grp->'examples') WITH ORDINALITY e(ex, ex_no))
+                 || ', total ' || (g.grp->>'yrs') || ')', '' ORDER BY g.grp_no)
+        FROM jsonb_array_elements(r.groups) WITH ORDINALITY g(grp, grp_no)), '')))
+  FROM results r
+  ORDER BY r.term_no;
 $$;
 
-COMMENT ON FUNCTION public.search_skills(text[], extensions.vector[], public.skill_usage_mode, integer, double precision) IS
+COMMENT ON FUNCTION public.search_skills(text[], extensions.vector[], public.skill_usage_mode, public.skill_usage_mode, integer, double precision, double precision) IS
   'Skill + abstract group years, e.g. "AWS (2) + Other cloud services (4)". Embeddings optional (fuzzy match only).';
 
 -- Async embed via edge function embed-skill (pg_net). Fires on name/desc change.
@@ -403,17 +433,22 @@ CREATE TABLE public.pitch_skills (
   PRIMARY KEY (pitch_id, skill_id)
 );
 
--- One row links a pitch to exactly one proof: title, employer, education, growth.
+-- One row links a pitch to exactly one proof: title, employer, education.
 CREATE TABLE public.pitch_evidence (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   pitch_id uuid NOT NULL REFERENCES public.pitches (id),
   employment_title_id uuid REFERENCES public.employment_titles (id),
   employer_id uuid REFERENCES public.employer (id),
   education_and_training_id uuid REFERENCES public.education_and_training (id),
-  personal_growth_id uuid REFERENCES public.personal_growth (id),
   note varchar(300),
   CONSTRAINT pitch_evidence_exactly_one_target_chk
-    CHECK (num_nonnulls(employment_title_id, employer_id, education_and_training_id, personal_growth_id) = 1)
+    CHECK (num_nonnulls(employment_title_id, employer_id, education_and_training_id) = 1)
+);
+
+CREATE TABLE public.pitch_growth (
+  pitch_id uuid NOT NULL REFERENCES public.pitches (id) ON DELETE CASCADE,
+  personal_growth_id uuid NOT NULL REFERENCES public.personal_growth (id) ON DELETE CASCADE,
+  PRIMARY KEY (pitch_id, personal_growth_id)
 );
 
 CREATE VIEW public.pitch_catalog WITH (security_invoker = true) AS
@@ -452,18 +487,24 @@ AS $$
         'employer', coalesce(e.name, te.name),
         'title', t.name,
         'edu', d.name,
-        'growth', gr.name,
-        'from', coalesce(t.start_year, e.start_year, d.start_year, gr.start_year),
-        'to', coalesce(t.end_year, e.end_year, d.end_year, gr.end_year),
-        'dsc', coalesce(t."desc", e.resume_desc, d.desc_long, gr.desc_long),
+        'from', coalesce(t.start_year, e.start_year, d.start_year),
+        'to', coalesce(t.end_year, e.end_year, d.end_year),
+        'dsc', coalesce(t."desc", e.resume_desc, d.desc_long),
         'note', pe.note)))
       FROM public.pitch_evidence pe
       LEFT JOIN public.employment_titles t ON t.id = pe.employment_title_id
       LEFT JOIN public.employer te ON te.id = t.employer_id
       LEFT JOIN public.employer e ON e.id = pe.employer_id
       LEFT JOIN public.education_and_training d ON d.id = pe.education_and_training_id
-      LEFT JOIN public.personal_growth gr ON gr.id = pe.personal_growth_id
       WHERE pe.pitch_id = p.id), '[]'::jsonb)
+    || coalesce((SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+        'growth', gr.name,
+        'from', gr.start_year,
+        'to', gr.end_year,
+        'dsc', gr.desc_long)))
+      FROM public.pitch_growth pg
+      JOIN public.personal_growth gr ON gr.id = pg.personal_growth_id
+      WHERE pg.pitch_id = p.id), '[]'::jsonb)
   FROM public.pitches p
   WHERE p.slug = ANY (p_slugs);
 $$;
@@ -513,6 +554,8 @@ COMMENT ON TABLE public.pitch_skills IS
   'Durations: get_skills(names, mode). One mode per output.';
 COMMENT ON TABLE public.pitch_evidence IS
   'Join table: pitches to the work that backs them. Facts the output may state.';
+COMMENT ON TABLE public.pitch_growth IS
+  'Join table: pitches to personal_growth rows that back them.';
 COMMENT ON COLUMN public.pitch_evidence.note IS
   'Explains how the linked row supports the pitch.';
 COMMENT ON VIEW public.pitch_catalog IS
@@ -532,6 +575,9 @@ CREATE TABLE public.projects (
   name varchar(100) NOT NULL,
   "desc" text,
   problem_to_solve text,
+  objective text,
+  result text,
+  brag_detail text,
   -- intentional break of 3rd normal
   key_features text[] NOT NULL DEFAULT '{}',
   tools_used text[] NOT NULL DEFAULT '{}',
@@ -553,6 +599,12 @@ CREATE TABLE public.project_growth (
   PRIMARY KEY (project_id, personal_growth_id)
 );
 
+CREATE TABLE public.pitch_projects (
+  pitch_id uuid NOT NULL REFERENCES public.pitches (id) ON DELETE CASCADE,
+  project_id uuid NOT NULL REFERENCES public.projects (id) ON DELETE CASCADE,
+  PRIMARY KEY (pitch_id, project_id)
+);
+
 CREATE OR REPLACE FUNCTION public.get_projects()
 RETURNS jsonb
 LANGUAGE sql
@@ -562,6 +614,9 @@ AS $$
       'name', p.name,
       'desc', p."desc",
       'problem_to_solve', p.problem_to_solve,
+      'objective', p.objective,
+      'result', p.result,
+      'brag_detail', p.brag_detail,
       'key_features', to_jsonb(nullif(p.key_features, '{}')),
       'tools_used', to_jsonb(nullif(p.tools_used, '{}')),
       'live_url', p.live_url,
@@ -578,6 +633,8 @@ COMMENT ON TABLE public.project_skills IS
   'Join table: projects to skills used.';
 COMMENT ON TABLE public.project_growth IS
   'Join table: projects to personal_growth rows they came from.';
+COMMENT ON TABLE public.pitch_projects IS
+  'Join table: pitches to projects that back them.';
 COMMENT ON FUNCTION public.get_projects() IS
   'All visible projects as a jsonb array, ordered by name.';
 

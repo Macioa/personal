@@ -13,7 +13,7 @@ Identify ADE skills pertaining to: Web browsing, PDF management, database connec
 1. Scan to comprehend jd
    - Identify the primary and secondary skills stated in the jd - distinguish hard and soft skills
    - Identify the hard/absolute requirements, and soft/ideal requirements stated in the jd
-   - Pair hard skills with abstract equivalents for later use - ex: AWS/Cloud Services, FastAPI/API Frameworks, Python-contextual/OOP or scripting or programming
+   - Pair hard skills with abstract equivalents for later use - ex: AWS/Cloud Services, FastAPI/API Frameworks, Python-contextual/OOP or scripting or programming. Get pairs + years from `search_skills(array[...], null, 'precise')` (`--skill-mode precise`) (skill `search-skills`)
 2. Scan database to identify relevant skills and direct education or training
 
    Look for, in order:
@@ -43,9 +43,16 @@ Sections, in order:
 1. **Contact info** - Check database to get appropriate contact information. Include name, city, email, personal website, LinkedIn, GitHub if available.
 2. **Summary** - Combine user-specified pitches and a career overview into a coherent 1-3 paragraph summary tailored to the jd. Include direct years of experience for most applicable skills.
 3. **Skills section** - Pick top 10 skill matches and present them in a clean table format with years of experience or (1-5) ranking depending on what best sells the skill matches.
-4. **Work Experience** - Include all non-private-marked work experience. Each entry: top level summary; top 3 most applicable line items; skills subsection with ~3 most JD-applicable skills. Use explicit hard skills when they match directly, otherwise use the abstract equivalent. Ex: if jd requests FastAPI, list FastAPI where used; elsewhere say "web frameworks like FastAPI".
+   - Row: "<jd skill> (<its yrs>) + Other <abstract equivalent>"; Years column = combined total. Ex: "AWS (2) + Other Cloud Services" | 4.
+   - Add "+ Other" only if the DB has a distinct skill of the same kind; otherwise "<jd skill>" | its yrs.
+   - Name sub-tools or services in parentheses only when the jd names them and they match db records.
+4. **Work Experience** - Include all non-private-marked work experience. Each entry: top level summary (required: build from `employer.company_desc` + the summary sentence of `resume_desc`; if neither exists, flag it to the user rather than omit); top 3 most applicable line items; skills subsection with ~3 most JD-applicable skills. Use explicit hard skills when they match directly, otherwise use the abstract equivalent. Ex: if jd requests FastAPI, list FastAPI where used; elsewhere say "web frameworks like FastAPI".
 5. **Projects** - Include projects with applicable skills; omit section if none.
-6. **Education** - Always include all non-private-marked education, certification, training, and clearances in the education section.
+6. **Education, Training, Certifications** - Always include all non-private-marked `education_and_training` rows, split into three sections by `type`:
+   - **Education**: bachelors, masters, phd
+   - **Training**: training, training_certificate
+   - **Certifications & Clearances**: certificate, clearance
+   - `other`: flag to the user.
 
 ## Phase 3: Cover Letter
 
