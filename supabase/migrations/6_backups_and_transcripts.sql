@@ -29,10 +29,10 @@ COMMENT ON COLUMN public.backups.backup_format IS 'amr (copied as-is) or mp4 (co
 -- 1:1 backup -> exactly one communication or interview.
 CREATE TABLE public.backup_sources (
   backup_id uuid PRIMARY KEY REFERENCES public.backups (id) ON DELETE CASCADE,
-  communication_id uuid UNIQUE REFERENCES public.application_conversations (id) ON DELETE CASCADE,
+  application_conversation_id uuid UNIQUE REFERENCES public.application_conversations (id) ON DELETE CASCADE,
   interview_id uuid UNIQUE REFERENCES public.application_interviews (id) ON DELETE CASCADE,
   CONSTRAINT backup_sources_one_target_chk
-    CHECK (num_nonnulls(communication_id, interview_id) = 1)
+    CHECK (num_nonnulls(application_conversation_id, interview_id) = 1)
 );
 
 -- ---------------------------------------------------------------------------
@@ -54,6 +54,10 @@ COMMENT ON COLUMN public.transcripts.word_count IS
   'Words after the silence-hallucination filter. 0 = no speech, no chunks.';
 COMMENT ON COLUMN public.transcripts.context_header IS
   'transcript_context() at ingest; prepended to each chunk when embedded.';
+COMMENT ON COLUMN public.transcripts.embedding_model IS
+  'Model used for transcript_chunks embeddings.';
+COMMENT ON COLUMN public.transcripts.chunker_version IS
+  'Chunking logic version; re-chunk when older than current.';
 
 -- 1:1 backup <-> transcript.
 CREATE TABLE public.backup_transcripts (
@@ -69,7 +73,10 @@ CREATE TABLE public.transcript_speakers (
   is_self boolean NOT NULL DEFAULT false,
   PRIMARY KEY (transcript_id, speaker_no)
 );
+COMMENT ON TABLE public.transcript_speakers IS
+  'Speakers per transcript; turns and chunks refer to them by speaker_no.';
 COMMENT ON COLUMN public.transcript_speakers.speaker_no IS 'Diarization number 1..N.';
+COMMENT ON COLUMN public.transcript_speakers.is_self IS 'True for the user.';
 COMMENT ON COLUMN public.transcript_speakers.label IS
   'Free text, not unique; may name several people (e.g. Jennifer (CRC) + Ryan).';
 
@@ -86,7 +93,10 @@ CREATE TABLE public.transcript_turns (
     REFERENCES public.transcript_speakers (transcript_id, speaker_no) ON DELETE CASCADE,
   CONSTRAINT transcript_turns_time_chk CHECK (end_s >= start_s)
 );
+COMMENT ON TABLE public.transcript_turns IS 'One speaker turn, in order.';
 COMMENT ON COLUMN public.transcript_turns.turn_no IS '0-based, after the silence-hallucination filter.';
+COMMENT ON COLUMN public.transcript_turns.start_s IS 'Seconds from start of recording.';
+COMMENT ON COLUMN public.transcript_turns.end_s IS 'Seconds from start of recording.';
 
 -- Search units: overlapping windows of turns.
 CREATE TABLE public.transcript_chunks (
@@ -106,6 +116,16 @@ CREATE TABLE public.transcript_chunks (
 );
 COMMENT ON COLUMN public.transcript_chunks.content IS
   '"Label: text" lines. Embedded as context_header + newline + content.';
+COMMENT ON TABLE public.transcript_chunks IS
+  'Search units of a transcript. Read: search_transcripts.';
+COMMENT ON COLUMN public.transcript_chunks.first_turn IS 'First turn_no covered (inclusive).';
+COMMENT ON COLUMN public.transcript_chunks.last_turn IS 'Last turn_no covered (inclusive).';
+COMMENT ON COLUMN public.transcript_chunks.start_s IS 'Seconds from start of recording.';
+COMMENT ON COLUMN public.transcript_chunks.end_s IS 'Seconds from start of recording.';
+COMMENT ON COLUMN public.transcript_chunks.speaker_nos IS 'speaker_no values in this chunk.';
+COMMENT ON COLUMN public.transcript_chunks.fts IS 'Keyword index of content.';
+COMMENT ON COLUMN public.transcript_chunks.embedding IS
+  'embedding_model vector of context_header + content.';
 
 -- ---------------------------------------------------------------------------
 -- Functions
@@ -124,7 +144,7 @@ AS $$
     to_char(coalesce(c.occurred_at, i.scheduled_at, b.recorded_at), 'YYYY-MM-DD'))
   FROM public.backups b
   JOIN public.backup_sources s ON s.backup_id = b.id
-  LEFT JOIN public.application_conversations c ON c.id = s.communication_id
+  LEFT JOIN public.application_conversations c ON c.id = s.application_conversation_id
   LEFT JOIN public.application_interviews i ON i.id = s.interview_id
   JOIN public.applications a ON a.id = coalesce(c.application_id, i.application_id)
   WHERE b.id = p_backup_id;

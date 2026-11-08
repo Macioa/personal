@@ -7,7 +7,7 @@
    `python scripts/transcribe/main.py <recording> [num_speakers=2] [model=small, amr large-v3-turbo] [out_dir=temp/transcripts]`
 3. Outputs: `.md`, `.json`, `.archive.mp4` (compressed video).
 4. Optionally ask for real names; replace `Speaker N`.
-5. Log backup (Supabase MCP; show rows, get yes): `backups` row (`type`, `duration`, `backup_url`, `backup_location`, `original_format`, `backup_format`, `original_filename`, `recorded_at`; no URL given → `backup_url` = local absolute path of `.archive.mp4`) + `backup_sources` row (exactly one of `communication_id` / `interview_id`).
+5. Log backup (Supabase MCP; show rows, get yes): `backups` row (`type`, `duration`, `backup_url`, `backup_location`, `original_format`, `backup_format`, `original_filename`, `recorded_at`; no URL given → `backup_url` = local absolute path of `.archive.mp4`) + `backup_sources` row (exactly one of `application_conversation_id` / `interview_id`).
 6. Ingest for search:
    `python scripts/vector/ingest.py temp/transcripts/<stem>.json --backup <backup id> [--self <my speaker no>] [--asr-model <model>]`
    - Labels come from the `.md`. Re-run after relabeling; it replaces the old transcript.

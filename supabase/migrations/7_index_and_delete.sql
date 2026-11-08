@@ -22,8 +22,8 @@ CREATE INDEX application_conversations_application_id_idx
 CREATE INDEX todolist_application_id_idx
   ON public.todolist (application_id);
 
-CREATE INDEX todolist_communication_id_idx
-  ON public.todolist (communication_id);
+CREATE INDEX todolist_application_conversation_id_idx
+  ON public.todolist (application_conversation_id);
 
 CREATE INDEX todolist_target_date_idx
   ON public.todolist (target_date);
@@ -40,8 +40,8 @@ CREATE INDEX application_logins_login_id_idx
 CREATE INDEX abuse_application_id_idx
   ON public.abuse (application_id);
 
-CREATE INDEX abuse_communication_id_idx
-  ON public.abuse (communication_id);
+CREATE INDEX abuse_application_conversation_id_idx
+  ON public.abuse (application_conversation_id);
 
 CREATE INDEX employment_titles_employer_id_idx
   ON public.employment_titles (employer_id);

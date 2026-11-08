@@ -153,10 +153,14 @@ COMMENT ON COLUMN public.personal_growth.private IS
   'True hides the row (and its skill links) from resume_reader.';
 COMMENT ON COLUMN public.skills.type IS
   'Kind of skill (hard/soft). For display grouping use skill_group_members.';
+COMMENT ON COLUMN public.skills.priority IS
+  'User defined rankings for skill significance.';
 COMMENT ON COLUMN public.skills.embedding IS
   'gte-small (384) of name + desc. Filled by edge function embed-skill via trigger.';
 COMMENT ON TABLE public.skill_groups IS
   'Abstract skill buckets for resume display, e.g. "cloud services". Reuse an existing group before adding one.';
+COMMENT ON COLUMN public.skill_groups.embedding IS
+  'gte-small (384) of name + desc.';
 COMMENT ON TABLE public.skill_group_members IS
   'Join: skills to groups (many-to-many).';
 COMMENT ON COLUMN public.skills.private IS
@@ -629,6 +633,10 @@ COMMENT ON TABLE public.projects IS
   'Portfolio projects. Read: get_projects().';
 COMMENT ON COLUMN public.projects.private IS
   'True hides the row (and its skill/growth links) from resume_reader.';
+COMMENT ON COLUMN public.projects.objective IS
+  'Abstract goals for project.';
+COMMENT ON COLUMN public.projects.brag_detail IS
+  'Project details to brag about.';
 COMMENT ON TABLE public.project_skills IS
   'Join table: projects to skills used.';
 COMMENT ON TABLE public.project_growth IS

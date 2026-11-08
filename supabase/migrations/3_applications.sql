@@ -28,6 +28,10 @@ CREATE TABLE public.applications (
 
 COMMENT ON COLUMN public.applications.direct_recruiter IS
   'Recruiter is in direct contact with hiring manager - is not an indirect third party agency';
+COMMENT ON COLUMN public.applications.pending IS
+  'Tracked as actively under review.';
+COMMENT ON COLUMN public.applications.rejected IS
+  'Officially rejected.';
 
 CREATE TABLE public.application_interviews (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -56,7 +60,7 @@ CREATE TABLE public.application_conversations (
 CREATE TABLE public.todolist (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   application_id uuid REFERENCES public.applications (id) ON DELETE CASCADE,
-  communication_id uuid REFERENCES public.application_conversations (id) ON DELETE SET NULL,
+  application_conversation_id uuid REFERENCES public.application_conversations (id) ON DELETE SET NULL,
   name text NOT NULL,
   description text,
   target_date timestamptz,
@@ -245,7 +249,7 @@ CREATE TABLE public.abuse (
   other text,
   "desc" text,
   derogatory boolean NOT NULL DEFAULT false,
-  communication_id uuid REFERENCES public.application_conversations (id) ON DELETE SET NULL,
+  application_conversation_id uuid REFERENCES public.application_conversations (id) ON DELETE SET NULL,
   indirect_imitation boolean NOT NULL DEFAULT false,
   evidence_quote text,
   hours_lost numeric(8, 2),
@@ -364,3 +368,10 @@ COMMENT ON COLUMN public.abuse.repetition_without_acknowledgement_of_repetition 
 COMMENT ON COLUMN public.abuse.no_submission_confirmation IS
   'Did not receive submission confirmation after verbally told otherwise';
 
+
+COMMENT ON TABLE public.application_conversations IS
+  'Non-interview communications regarding application.';
+COMMENT ON TABLE public.application_interviews IS
+  'Scheduled interviews for application.';
+COMMENT ON COLUMN public.application_interviews.meeting_invite IS
+  'Raw text with meeting link included.';
