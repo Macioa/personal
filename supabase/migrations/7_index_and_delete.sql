@@ -102,6 +102,15 @@ CREATE INDEX gemini_requests_sent_at_idx ON public.gemini_requests (sent_at);
 CREATE INDEX skills_lower_name_idx
   ON public.skills (lower(name));
 
+CREATE INDEX skill_group_members_group_id_idx
+  ON public.skill_group_members (group_id);
+
+-- search_skills() vector legs (cosine).
+CREATE INDEX skills_embedding_idx
+  ON public.skills USING hnsw (embedding extensions.vector_cosine_ops);
+CREATE INDEX skill_groups_embedding_idx
+  ON public.skill_groups USING hnsw (embedding extensions.vector_cosine_ops);
+
 CREATE INDEX transcript_turns_speaker_idx
   ON public.transcript_turns (transcript_id, speaker_no);
 

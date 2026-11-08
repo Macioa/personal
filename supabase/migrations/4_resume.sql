@@ -48,9 +48,22 @@ CREATE TABLE public.skills (
   name text,
   "desc" text,
   type public.skill_type,
-  skill_group text,
   private boolean NOT NULL DEFAULT false,
-  priority integer
+  priority integer,
+  embedding extensions.vector(384)
+);
+
+CREATE TABLE public.skill_groups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  "desc" text,
+  embedding extensions.vector(384)
+);
+
+CREATE TABLE public.skill_group_members (
+  skill_id uuid NOT NULL REFERENCES public.skills (id) ON DELETE CASCADE,
+  group_id uuid NOT NULL REFERENCES public.skill_groups (id) ON DELETE CASCADE,
+  PRIMARY KEY (skill_id, group_id)
 );
 
 CREATE TABLE public.education_and_training (
@@ -135,9 +148,13 @@ COMMENT ON COLUMN public.education_and_training.private IS
 COMMENT ON COLUMN public.personal_growth.private IS
   'True hides the row (and its skill links) from resume_reader.';
 COMMENT ON COLUMN public.skills.type IS
-  'Kind of skill (hard/soft). For display grouping use skill_group.';
-COMMENT ON COLUMN public.skills.skill_group IS
-  'Consolidation bucket for resume display, e.g. "Programming languages", "Web server frameworks", "Cloud platforms". Reuse an existing value (SELECT DISTINCT skill_group FROM skills) before adding one. Null = standalone skill.';
+  'Kind of skill (hard/soft). For display grouping use skill_group_members.';
+COMMENT ON COLUMN public.skills.embedding IS
+  'gte-small (384) of name + desc. Filled by edge function embed-skill via trigger.';
+COMMENT ON TABLE public.skill_groups IS
+  'Abstract skill buckets for resume display, e.g. "cloud services". Reuse an existing group before adding one.';
+COMMENT ON TABLE public.skill_group_members IS
+  'Join: skills to groups (many-to-many).';
 COMMENT ON COLUMN public.skills.private IS
   'True hides the skill (and its links) from resume_reader.';
 COMMENT ON COLUMN public.skill_links.private IS
@@ -145,23 +162,18 @@ COMMENT ON COLUMN public.skill_links.private IS
 
 -- Usage spans come from the linked row's dates. Missing start parts default to
 -- Jan 1; missing end parts default to the last day of the year/month; a null
--- end_year means ongoing (today). precise = union of spans with overlaps
--- merged; start_to_end = last_used - first_used. total_years = those days
--- in years, rounded up.
-CREATE OR REPLACE FUNCTION public.get_skill(
-  p_skill text,
+-- end_year means ongoing (today). Spans of all given skills are unioned with
+-- overlaps merged. precise = merged days; start_to_end = last_used -
+-- first_used. total_years = those days in years, rounded up.
+CREATE OR REPLACE FUNCTION public.skill_usage(
+  p_skill_ids uuid[],
   p_mode public.skill_usage_mode DEFAULT 'start_to_end'
-) RETURNS SETOF jsonb
+) RETURNS TABLE (first_used date, last_used date, total_years integer)
 LANGUAGE sql
 STABLE
 AS $$
-  WITH s AS (
-    SELECT sk.id, sk.name, sk."desc", sk.type, sk.skill_group
-    FROM public.skills sk
-    WHERE lower(sk.name) = lower(p_skill)
-  ),
-  raw AS (
-    SELECT l.skill_id,
+  WITH raw AS (
+    SELECT
       coalesce(t.start_year, e.start_year, ed.start_year, g.start_year) AS sy,
       coalesce(t.start_month, e.start_month, ed.start_month, g.start_month) AS sm,
       coalesce(t.start_day, e.start_day, ed.start_day, g.start_day) AS sd,
@@ -169,15 +181,14 @@ AS $$
       coalesce(t.end_month, e.end_month, ed.end_month, g.end_month) AS em,
       coalesce(t.end_day, e.end_day, ed.end_day, g.end_day) AS endd
     FROM public.skill_links l
-    JOIN s ON s.id = l.skill_id
     LEFT JOIN public.employment_titles t ON t.id = l.employment_title_id
     LEFT JOIN public.employer e ON e.id = l.employer_id
     LEFT JOIN public.education_and_training ed ON ed.id = l.education_and_training_id
     LEFT JOIN public.personal_growth g ON g.id = l.personal_growth_id
+    WHERE l.skill_id = ANY (p_skill_ids)
   ),
   spans AS (
-    SELECT skill_id,
-      make_date(sy, coalesce(sm, 1), coalesce(sd, 1)) AS s,
+    SELECT make_date(sy, coalesce(sm, 1), coalesce(sd, 1)) AS s,
       CASE
         WHEN ey IS NULL THEN current_date
         WHEN em IS NOT NULL AND endd IS NOT NULL THEN make_date(ey, em, endd)
@@ -187,42 +198,48 @@ AS $$
     WHERE sy IS NOT NULL
   ),
   ordered AS (
-    SELECT skill_id, s, e,
-      max(e) OVER (PARTITION BY skill_id ORDER BY s, e
-                   ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS prev_max
+    SELECT s, e,
+      max(e) OVER (ORDER BY s, e ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS prev_max
     FROM spans
   ),
   grouped AS (
-    SELECT skill_id, s, e,
-      sum(CASE WHEN prev_max IS NULL OR s > prev_max THEN 1 ELSE 0 END)
-        OVER (PARTITION BY skill_id ORDER BY s, e) AS grp
+    SELECT s, e,
+      sum(CASE WHEN prev_max IS NULL OR s > prev_max THEN 1 ELSE 0 END) OVER (ORDER BY s, e) AS grp
     FROM ordered
   ),
   merged AS (
-    SELECT skill_id, min(s) AS s, max(e) AS e
-    FROM grouped
-    GROUP BY skill_id, grp
-  ),
-  agg AS (
-    SELECT skill_id, min(s) AS first_used, max(e) AS last_used,
-      sum(e - s)::integer AS precise_days
-    FROM merged
-    GROUP BY skill_id
+    SELECT min(s) AS s, max(e) AS e FROM grouped GROUP BY grp
   )
+  SELECT min(s), max(e),
+    ceil(CASE
+      WHEN p_mode = 'precise'::public.skill_usage_mode THEN sum(e - s)
+      ELSE max(e) - min(s)
+    END / 365.25)::integer
+  FROM merged;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_skill(
+  p_skill text,
+  p_mode public.skill_usage_mode DEFAULT 'start_to_end'
+) RETURNS SETOF jsonb
+LANGUAGE sql
+STABLE
+AS $$
   SELECT jsonb_strip_nulls(jsonb_build_object(
-    'skill_id', s.id,
-    'name', s.name,
-    'desc', s."desc",
-    'type', s.type,
-    'skill_group', s.skill_group,
-    'first_used', extract(year FROM a.first_used)::integer,
-    'last_used', extract(year FROM a.last_used)::integer,
-    'total_years', ceil(CASE
-      WHEN p_mode = 'precise'::public.skill_usage_mode THEN a.precise_days
-      ELSE (a.last_used - a.first_used)
-    END / 365.25)::integer))
-  FROM s
-  LEFT JOIN agg a ON a.skill_id = s.id;
+    'skill_id', sk.id,
+    'name', sk.name,
+    'desc', sk."desc",
+    'type', sk.type,
+    'groups', (SELECT jsonb_agg(g.name ORDER BY g.name)
+               FROM public.skill_group_members m
+               JOIN public.skill_groups g ON g.id = m.group_id
+               WHERE m.skill_id = sk.id),
+    'first_used', extract(year FROM u.first_used)::integer,
+    'last_used', extract(year FROM u.last_used)::integer,
+    'total_years', u.total_years))
+  FROM public.skills sk
+  CROSS JOIN LATERAL public.skill_usage(ARRAY[sk.id], p_mode) u
+  WHERE lower(sk.name) = lower(p_skill);
 $$;
 
 CREATE OR REPLACE FUNCTION public.get_skills(
@@ -237,13 +254,119 @@ AS $$
     'nm', g->'name',
     'dsc', g->'desc',
     't', g->'type',
-    'grp', g->'skill_group',
+    'grp', g->'groups',
     'from', g->'first_used',
     'to', g->'last_used',
     'yrs', g->'total_years'))
   FROM unnest(p_skills) AS u(skill)
   CROSS JOIN LATERAL public.get_skill(u.skill, p_mode) AS g;
 $$;
+
+-- Per term: the skill (exact name, else nearest by embedding) and its groups
+-- (or nearest groups if no skill), with years. Group years exclude the skill.
+CREATE OR REPLACE FUNCTION public.search_skills(
+  p_skills text[],
+  p_embeddings extensions.vector(384)[] DEFAULT NULL,
+  p_mode public.skill_usage_mode DEFAULT 'start_to_end',
+  p_group_limit integer DEFAULT 2,
+  p_min_sim double precision DEFAULT 0.9
+) RETURNS SETOF jsonb
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+  WITH terms AS (
+    SELECT t.term, t.i, p_embeddings[t.i] AS emb
+    FROM unnest(p_skills) WITH ORDINALITY AS t(term, i)
+  ),
+  hit AS (
+    SELECT t.*, coalesce(
+      (SELECT s.id FROM public.skills s WHERE lower(s.name) = lower(t.term) LIMIT 1),
+      (SELECT s.id FROM public.skills s
+       WHERE t.emb IS NOT NULL AND s.embedding IS NOT NULL
+         AND 1 - (s.embedding OPERATOR(extensions.<=>) t.emb) >= p_min_sim
+       ORDER BY s.embedding OPERATOR(extensions.<=>) t.emb LIMIT 1)) AS skill_id
+    FROM terms t
+  ),
+  grps AS (
+    SELECT h.i, g.id, g.name, 0::double precision AS dist
+    FROM hit h
+    JOIN public.skill_group_members m ON m.skill_id = h.skill_id
+    JOIN public.skill_groups g ON g.id = m.group_id
+    UNION ALL
+    SELECT h.i, n.id, n.name, n.dist
+    FROM hit h
+    CROSS JOIN LATERAL (
+      SELECT g.id, g.name, g.embedding OPERATOR(extensions.<=>) h.emb AS dist
+      FROM public.skill_groups g
+      WHERE g.embedding IS NOT NULL
+      ORDER BY 3 LIMIT p_group_limit) n
+    WHERE h.skill_id IS NULL AND h.emb IS NOT NULL
+  ),
+  grp_yrs AS (
+    SELECT g.i, g.name, g.dist, u.total_years AS yrs,
+      -- Top 3 other members by their own years.
+      ARRAY(SELECT x.name FROM (
+        SELECT s.name, su.total_years
+        FROM public.skill_group_members m
+        JOIN public.skills s ON s.id = m.skill_id
+        CROSS JOIN LATERAL public.skill_usage(ARRAY[s.id], p_mode) su
+        WHERE m.group_id = g.id AND m.skill_id IS DISTINCT FROM h.skill_id
+          AND su.total_years IS NOT NULL
+        ORDER BY su.total_years DESC, s.name LIMIT 3) x) AS examples
+    FROM grps g
+    JOIN hit h ON h.i = g.i
+    CROSS JOIN LATERAL public.skill_usage(ARRAY(
+      SELECT m.skill_id FROM public.skill_group_members m
+      WHERE m.group_id = g.id AND m.skill_id IS DISTINCT FROM h.skill_id), p_mode) u
+    WHERE u.total_years IS NOT NULL
+  ),
+  out AS (
+    SELECT h.i, h.term, s.name AS skill, u.total_years AS yrs,
+      (SELECT jsonb_agg(jsonb_build_object('name', y.name, 'yrs', y.yrs, 'examples', to_jsonb(y.examples))
+                        ORDER BY y.dist, y.yrs DESC)
+       FROM grp_yrs y WHERE y.i = h.i) AS groups,
+      (SELECT string_agg(' + Other ' || y.name || ' (' || array_to_string(y.examples, ', ')
+                         || ', total ' || y.yrs || ')', '' ORDER BY y.dist, y.yrs DESC)
+       FROM grp_yrs y WHERE y.i = h.i) AS grp_label
+    FROM hit h
+    LEFT JOIN public.skills s ON s.id = h.skill_id
+    LEFT JOIN LATERAL public.skill_usage(ARRAY[h.skill_id], p_mode) u ON h.skill_id IS NOT NULL
+  )
+  SELECT jsonb_strip_nulls(jsonb_build_object(
+    'term', term,
+    'skill', skill,
+    'yrs', yrs,
+    'groups', groups,
+    'label', coalesce(skill || coalesce(' (' || yrs || ')', ''), 'None') || coalesce(grp_label, '')))
+  FROM out ORDER BY i;
+$$;
+
+COMMENT ON FUNCTION public.search_skills(text[], extensions.vector[], public.skill_usage_mode, integer, double precision) IS
+  'Skill + abstract group years, e.g. "AWS (2) + Other cloud services (4)". Embeddings optional (fuzzy match only).';
+
+-- Async embed via edge function embed-skill (pg_net). Fires on name/desc change.
+CREATE OR REPLACE FUNCTION public.request_skill_embedding()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  PERFORM net.http_post(
+    url := 'https://yxmzfpicfrlvzqogzmyl.supabase.co/functions/v1/embed-skill',
+    body := jsonb_build_object('table', TG_TABLE_NAME, 'id', NEW.id),
+    headers := '{"Content-Type":"application/json"}'::jsonb);
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER skills_embed_trg
+  AFTER INSERT OR UPDATE OF name, "desc" ON public.skills
+  FOR EACH ROW EXECUTE FUNCTION public.request_skill_embedding();
+CREATE TRIGGER skill_groups_embed_trg
+  AFTER INSERT OR UPDATE OF name, "desc" ON public.skill_groups
+  FOR EACH ROW EXECUTE FUNCTION public.request_skill_embedding();
 
 CREATE OR REPLACE FUNCTION public.get_all_skills()
 RETURNS jsonb

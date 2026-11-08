@@ -37,6 +37,8 @@ ALTER TABLE public.employer ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employment_titles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_portals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skills ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.skill_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.skill_group_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.education_and_training ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_employer_portals ENABLE ROW LEVEL SECURITY;
@@ -74,6 +76,8 @@ ALTER TABLE public.employer FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employment_titles FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_portals FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.skills FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.skill_groups FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.skill_group_members FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.education_and_training FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_employer_portals FORCE ROW LEVEL SECURITY;
@@ -111,6 +115,8 @@ REVOKE ALL ON TABLE public.employer FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employment_titles FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employer_portals FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skills FROM anon, authenticated;
+REVOKE ALL ON TABLE public.skill_groups FROM anon, authenticated;
+REVOKE ALL ON TABLE public.skill_group_members FROM anon, authenticated;
 REVOKE ALL ON TABLE public.education_and_training FROM anon, authenticated;
 REVOKE ALL ON TABLE public.personal_growth FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employer_employer_portals FROM anon, authenticated;
@@ -146,6 +152,11 @@ REVOKE EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_all_skills()
   FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.skill_usage(uuid[], public.skill_usage_mode)
+  FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.search_skills(text[], extensions.vector[], public.skill_usage_mode, integer, double precision)
+  FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.request_skill_embedding() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.abuse_computed_score(smallint, text[], public.abuse_confidence)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_day_overview(date, boolean)
@@ -190,6 +201,12 @@ GRANT SELECT ON TABLE public.skill_links TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_all_skills() TO resume_reader;
+GRANT SELECT ON TABLE public.skill_groups TO resume_reader;
+GRANT SELECT ON TABLE public.skill_group_members TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.skill_usage(uuid[], public.skill_usage_mode) TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.search_skills(text[], extensions.vector[], public.skill_usage_mode, integer, double precision) TO resume_reader;
+-- vector type and <=> operator (search_skills).
+GRANT USAGE ON SCHEMA extensions TO resume_reader;
 GRANT SELECT ON TABLE public.pitches TO resume_reader;
 GRANT SELECT ON TABLE public.pitch_skills TO resume_reader;
 GRANT SELECT ON TABLE public.pitch_evidence TO resume_reader;
@@ -223,6 +240,14 @@ CREATE POLICY resume_reader_select ON public.personal_growth
 CREATE POLICY resume_reader_select ON public.skills
   FOR SELECT TO resume_reader
   USING (NOT private);
+
+CREATE POLICY resume_reader_select ON public.skill_groups
+  FOR SELECT TO resume_reader
+  USING (true);
+
+CREATE POLICY resume_reader_select ON public.skill_group_members
+  FOR SELECT TO resume_reader
+  USING (EXISTS (SELECT 1 FROM public.skills s WHERE s.id = skill_id));
 
 CREATE POLICY resume_reader_select ON public.skill_links
   FOR SELECT TO resume_reader
@@ -292,6 +317,12 @@ GRANT USAGE ON SCHEMA public TO chat;
 GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO chat;
 GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO chat;
 GRANT EXECUTE ON FUNCTION public.get_all_skills() TO chat;
+GRANT SELECT ON TABLE public.skill_groups TO chat;
+GRANT SELECT ON TABLE public.skill_group_members TO chat;
+GRANT EXECUTE ON FUNCTION public.skill_usage(uuid[], public.skill_usage_mode) TO chat;
+GRANT EXECUTE ON FUNCTION public.search_skills(text[], extensions.vector[], public.skill_usage_mode, integer, double precision) TO chat;
+-- vector type and <=> operator (search_skills).
+GRANT USAGE ON SCHEMA extensions TO chat;
 GRANT EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) TO chat;
 GRANT EXECUTE ON FUNCTION public.get_all_pitches() TO chat;
 GRANT EXECUTE ON FUNCTION public.get_pitches(text[]) TO chat;
@@ -317,6 +348,8 @@ ALTER POLICY resume_reader_select ON public.employment_titles TO resume_reader, 
 ALTER POLICY resume_reader_select ON public.education_and_training TO resume_reader, chat;
 ALTER POLICY resume_reader_select ON public.personal_growth TO resume_reader, chat;
 ALTER POLICY resume_reader_select ON public.skills TO resume_reader, chat;
+ALTER POLICY resume_reader_select ON public.skill_groups TO resume_reader, chat;
+ALTER POLICY resume_reader_select ON public.skill_group_members TO resume_reader, chat;
 ALTER POLICY resume_reader_select ON public.skill_links TO resume_reader, chat;
 ALTER POLICY resume_reader_select ON public.pitches TO resume_reader, chat;
 ALTER POLICY resume_reader_select ON public.pitch_skills TO resume_reader, chat;
