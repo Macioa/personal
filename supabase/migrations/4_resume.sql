@@ -87,7 +87,10 @@ CREATE TABLE public.education_and_training (
   remote boolean,
   private boolean NOT NULL DEFAULT false,
   gpa text NOT NULL DEFAULT 'N/A'
-    CONSTRAINT education_and_training_gpa_chk CHECK (gpa = 'N/A' OR gpa ~ '^[0-9]+(\.[0-9]+)?$')
+    CONSTRAINT education_and_training_gpa_chk CHECK (gpa = 'N/A' OR gpa ~ '^[0-9]+(\.[0-9]+)?$'),
+  identification_number text,
+  issuing_authority text,
+  specialty text
 );
 
 CREATE TABLE public.personal_growth (
@@ -578,16 +581,24 @@ CREATE TABLE public.projects (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name varchar(100) NOT NULL,
   "desc" text,
-  problem_to_solve text,
-  objective text,
-  result text,
-  brag_detail text,
+  start_day integer,
+  start_month integer,
+  start_year integer,
+  end_day integer,
+  end_month integer,
+  end_year integer,
+  priority double precision,
   -- intentional break of 3rd normal
+  problem_to_solve text[] NOT NULL DEFAULT '{}',
+  objective text[] NOT NULL DEFAULT '{}',
+  result text[] NOT NULL DEFAULT '{}',
+  brag_detail text[] NOT NULL DEFAULT '{}',
   key_features text[] NOT NULL DEFAULT '{}',
   tools_used text[] NOT NULL DEFAULT '{}',
+  image_urls text[] NOT NULL DEFAULT '{}',
+  live_url text[] NOT NULL DEFAULT '{}',
+  source_url text[] NOT NULL DEFAULT '{}',
   -- end intentional break of 3rd normal
-  live_url text,
-  source_url text,
   private boolean NOT NULL DEFAULT false
 );
 
@@ -617,20 +628,31 @@ AS $$
   SELECT coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
       'name', p.name,
       'desc', p."desc",
-      'problem_to_solve', p.problem_to_solve,
-      'objective', p.objective,
-      'result', p.result,
-      'brag_detail', p.brag_detail,
+      'start_day', p.start_day,
+      'start_month', p.start_month,
+      'start_year', p.start_year,
+      'end_day', p.end_day,
+      'end_month', p.end_month,
+      'end_year', p.end_year,
+      'problem_to_solve', to_jsonb(nullif(p.problem_to_solve, '{}')),
+      'objective', to_jsonb(nullif(p.objective, '{}')),
+      'result', to_jsonb(nullif(p.result, '{}')),
+      'brag_detail', to_jsonb(nullif(p.brag_detail, '{}')),
       'key_features', to_jsonb(nullif(p.key_features, '{}')),
       'tools_used', to_jsonb(nullif(p.tools_used, '{}')),
-      'live_url', p.live_url,
-      'source_url', p.source_url))
-    ORDER BY p.name), '[]'::jsonb)
+      'image_urls', to_jsonb(nullif(p.image_urls, '{}')),
+      'live_url', to_jsonb(nullif(p.live_url, '{}')),
+      'source_url', to_jsonb(nullif(p.source_url, '{}'))))
+    ORDER BY p.priority DESC NULLS LAST,
+      p.start_year DESC NULLS LAST, p.start_month DESC NULLS LAST, p.start_day DESC NULLS LAST,
+      p.name), '[]'::jsonb)
   FROM public.projects p;
 $$;
 
 COMMENT ON TABLE public.projects IS
   'Portfolio projects. Read: get_projects().';
+COMMENT ON COLUMN public.projects.priority IS
+  'Display order: higher first, null last. Ties fall back to newest start date.';
 COMMENT ON COLUMN public.projects.private IS
   'True hides the row (and its skill/growth links) from resume_reader.';
 COMMENT ON COLUMN public.projects.objective IS
