@@ -174,6 +174,8 @@ REVOKE EXECUTE ON FUNCTION public.send_message(text, text)
 REVOKE EXECUTE ON FUNCTION public.get_faq(text) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_faqs(text[]) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_all_faqs() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.skill_sort_keys(), public.project_sort_keys()
+  FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_gemini_usage() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.log_gemini_request() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.transcript_context(uuid) FROM PUBLIC, anon, authenticated;
@@ -191,6 +193,23 @@ ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
+-- graphql_read: the only GraphQL entry for resume_reader/chat. Forces a
+-- read-only transaction, so mutations and write functions fail.
+-- No SET search_path: pg_graphql fails to load its schema with an empty one.
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.graphql_read(query text, variables jsonb DEFAULT '{}')
+RETURNS jsonb
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  PERFORM set_config('transaction_read_only', 'on', true);
+  RETURN graphql.resolve(query := query, variables := coalesce(variables, '{}'));
+END;
+$$;
+COMMENT ON FUNCTION public.graphql_read(text, jsonb) IS
+  'Only GraphQL entry for resume_reader/chat. Runs the query in a read-only transaction, so mutations fail.';
+REVOKE EXECUTE ON FUNCTION public.graphql_read(text, jsonb) FROM PUBLIC, anon, authenticated;
+-- ---------------------------------------------------------------------------
 -- resume_reader: login role for resume work. Sees only non-private career rows
 -- (and not rows whose parent is private). Set its password out of band:
 --   ALTER ROLE resume_reader PASSWORD '...';
@@ -204,7 +223,8 @@ GRANT SELECT ON TABLE public.employer TO resume_reader;
 GRANT SELECT ON TABLE public.employment_titles TO resume_reader;
 GRANT SELECT ON TABLE public.education_and_training TO resume_reader;
 GRANT SELECT ON TABLE public.personal_growth TO resume_reader;
-GRANT SELECT ON TABLE public.skills TO resume_reader;
+-- Every column except priority (hidden; sort via skill_sort_keys).
+GRANT SELECT (id, name, "desc", type, private, embedding) ON TABLE public.skills TO resume_reader;
 GRANT SELECT ON TABLE public.skill_links TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO resume_reader;
@@ -223,13 +243,21 @@ GRANT SELECT ON TABLE public.pitch_catalog TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_all_pitches() TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_pitches(text[]) TO resume_reader;
-GRANT SELECT ON TABLE public.projects TO resume_reader;
+-- Every column except priority (hidden; sort via project_sort_keys).
+GRANT SELECT (id, name, "desc", problem_to_solve, key_features, tools_used, live_url, source_url, private,
+  objective, result, brag_detail, image_urls, start_day, start_month, start_year, end_day, end_month, end_year)
+  ON TABLE public.projects TO resume_reader;
 GRANT SELECT ON TABLE public.project_skills TO resume_reader;
 GRANT SELECT ON TABLE public.project_growth TO resume_reader;
 GRANT SELECT ON TABLE public.pitch_projects TO resume_reader;
 GRANT SELECT ON TABLE public.pitch_growth TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_projects() TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.skill_sort_keys(), public.project_sort_keys() TO resume_reader;
 GRANT SELECT ON TABLE public.personal_info_and_docs TO resume_reader;
+-- GraphQL only via graphql_read (read-only); no graphql_public endpoint.
+GRANT USAGE ON SCHEMA graphql TO resume_reader;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA graphql TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.graphql_read(text, jsonb) TO resume_reader;
 
 CREATE POLICY resume_reader_select ON public.employer
   FOR SELECT TO resume_reader
@@ -345,22 +373,31 @@ GRANT EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) T
 GRANT EXECUTE ON FUNCTION public.get_all_pitches() TO chat;
 GRANT EXECUTE ON FUNCTION public.get_pitches(text[]) TO chat;
 GRANT EXECUTE ON FUNCTION public.get_projects() TO chat;
+GRANT EXECUTE ON FUNCTION public.skill_sort_keys(), public.project_sort_keys() TO chat;
 
 GRANT SELECT ON TABLE public.employer TO chat;
 GRANT SELECT ON TABLE public.employment_titles TO chat;
 GRANT SELECT ON TABLE public.education_and_training TO chat;
 GRANT SELECT ON TABLE public.personal_growth TO chat;
-GRANT SELECT ON TABLE public.skills TO chat;
+-- Every column except priority (hidden; sort via skill_sort_keys).
+GRANT SELECT (id, name, "desc", type, private, embedding) ON TABLE public.skills TO chat;
 GRANT SELECT ON TABLE public.skill_links TO chat;
 GRANT SELECT ON TABLE public.pitches TO chat;
 GRANT SELECT ON TABLE public.pitch_skills TO chat;
 GRANT SELECT ON TABLE public.pitch_evidence TO chat;
 GRANT SELECT ON TABLE public.pitch_catalog TO chat;
-GRANT SELECT ON TABLE public.projects TO chat;
+-- Every column except priority (hidden; sort via project_sort_keys).
+GRANT SELECT (id, name, "desc", problem_to_solve, key_features, tools_used, live_url, source_url, private,
+  objective, result, brag_detail, image_urls, start_day, start_month, start_year, end_day, end_month, end_year)
+  ON TABLE public.projects TO chat;
 GRANT SELECT ON TABLE public.project_skills TO chat;
 GRANT SELECT ON TABLE public.project_growth TO chat;
 GRANT SELECT ON TABLE public.pitch_projects TO chat;
 GRANT SELECT ON TABLE public.pitch_growth TO chat;
+-- GraphQL only via graphql_read (read-only); no graphql_public endpoint.
+GRANT USAGE ON SCHEMA graphql TO chat;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA graphql TO chat;
+GRANT EXECUTE ON FUNCTION public.graphql_read(text, jsonb) TO chat;
 
 -- Share resume_reader's private-row filters.
 ALTER POLICY resume_reader_select ON public.employer TO resume_reader, chat;

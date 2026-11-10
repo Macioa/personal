@@ -301,12 +301,12 @@ $$;
 
 -- Per term: the skill (exact name, else nearest by embedding) and its groups
 -- (or nearest groups if no skill), with years. Group years exclude the skill.
--- Skill years use p_skill_mode (default precise); group years p_group_mode (default start_to_end).
+-- Skill and group years both default to precise (merged spans, gaps excluded).
 CREATE OR REPLACE FUNCTION public.search_skills(
   p_skills text[],
   p_embeddings extensions.vector(384)[] DEFAULT NULL,
   p_skill_mode public.skill_usage_mode DEFAULT 'precise',
-  p_group_mode public.skill_usage_mode DEFAULT 'start_to_end',
+  p_group_mode public.skill_usage_mode DEFAULT 'precise',
   p_group_limit integer DEFAULT 2,
   p_min_sim double precision DEFAULT 0.9,
   p_group_min_sim double precision DEFAULT 0.815
@@ -405,6 +405,14 @@ CREATE TRIGGER skill_groups_embed_trg
   AFTER INSERT OR UPDATE OF name, "desc" ON public.skill_groups
   FOR EACH ROW EXECUTE FUNCTION public.request_skill_embedding();
 
+-- Sort keys without exposing priority values. Owner-run so readers need no column access.
+CREATE OR REPLACE FUNCTION public.skill_sort_keys()
+RETURNS TABLE (id uuid, sort_rank bigint)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$ SELECT s.id, dense_rank() OVER (ORDER BY s.priority NULLS LAST) FROM public.skills s; $$;
+COMMENT ON FUNCTION public.skill_sort_keys() IS
+  'Rank of each skill by priority (1 first, null last). Lets readers sort without seeing priority.';
+
 CREATE OR REPLACE FUNCTION public.get_all_skills()
 RETURNS jsonb
 LANGUAGE sql
@@ -413,11 +421,12 @@ AS $$
   SELECT jsonb_build_object(
     'msg', 'in order',
     'res', coalesce(jsonb_agg(g->'name'
-      ORDER BY s.priority NULLS LAST,
+      ORDER BY k.sort_rank,
         (g->>'total_years')::integer DESC NULLS LAST,
         (g->>'last_used')::integer DESC NULLS LAST,
         g->>'name'), '[]'::jsonb))
   FROM public.skills s
+  JOIN public.skill_sort_keys() k ON k.id = s.id
   CROSS JOIN LATERAL public.get_skill(s.name) AS g;
 $$;
 
@@ -566,7 +575,8 @@ COMMENT ON TABLE public.pitch_growth IS
 COMMENT ON COLUMN public.pitch_evidence.note IS
   'Explains how the linked row supports the pitch.';
 COMMENT ON VIEW public.pitch_catalog IS
-  'Used for finding appropriate pitches.';
+  e'Used for finding appropriate pitches.
+@graphql({"primary_key_columns": ["slug"], "foreign_keys": [{"local_name": "pitchCatalog", "local_columns": ["slug"], "foreign_name": "pitch", "foreign_schema": "public", "foreign_table": "pitches", "foreign_columns": ["slug"]}]})';
 COMMENT ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode) IS
   'Read for selected pitches before writing. p_mode sets skill durations; one mode per output.';
 COMMENT ON FUNCTION public.get_all_pitches() IS
@@ -620,6 +630,13 @@ CREATE TABLE public.pitch_projects (
   PRIMARY KEY (pitch_id, project_id)
 );
 
+CREATE OR REPLACE FUNCTION public.project_sort_keys()
+RETURNS TABLE (id uuid, sort_rank bigint)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$ SELECT p.id, dense_rank() OVER (ORDER BY p.priority DESC NULLS LAST) FROM public.projects p; $$;
+COMMENT ON FUNCTION public.project_sort_keys() IS
+  'Rank of each project by priority (higher first, null last). Lets readers sort without seeing priority.';
+
 CREATE OR REPLACE FUNCTION public.get_projects()
 RETURNS jsonb
 LANGUAGE sql
@@ -643,10 +660,11 @@ AS $$
       'image_urls', to_jsonb(nullif(p.image_urls, '{}')),
       'live_url', to_jsonb(nullif(p.live_url, '{}')),
       'source_url', to_jsonb(nullif(p.source_url, '{}'))))
-    ORDER BY p.priority DESC NULLS LAST,
+    ORDER BY k.sort_rank,
       p.start_year DESC NULLS LAST, p.start_month DESC NULLS LAST, p.start_day DESC NULLS LAST,
       p.name), '[]'::jsonb)
-  FROM public.projects p;
+  FROM public.projects p
+  JOIN public.project_sort_keys() k ON k.id = p.id;
 $$;
 
 COMMENT ON TABLE public.projects IS
