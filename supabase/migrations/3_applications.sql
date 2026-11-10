@@ -18,16 +18,31 @@ CREATE TABLE public.applications (
   official_job_desc text NOT NULL,
   job_post_link text NOT NULL,
   job_site_portal text,
-  cover_letter text,
+  cover_letter_text text,
+  resume_text text,
+  custom_resume boolean NOT NULL DEFAULT false,
+  custom_cover_letter boolean NOT NULL DEFAULT false,
   pending boolean NOT NULL DEFAULT true,
   rejected boolean NOT NULL DEFAULT false,
   rejection_reason text,
   recruiting_agency text,
-  direct_recruiter boolean DEFAULT NULL
+  direct_recruiter boolean DEFAULT NULL,
+  CONSTRAINT applications_custom_resume_text_chk
+    CHECK (NOT custom_resume OR nullif(btrim(resume_text), '') IS NOT NULL),
+  CONSTRAINT applications_custom_cover_letter_text_chk
+    CHECK (NOT custom_cover_letter OR nullif(btrim(cover_letter_text), '') IS NOT NULL)
 );
 
 COMMENT ON COLUMN public.applications.direct_recruiter IS
   'Recruiter is in direct contact with hiring manager - is not an indirect third party agency';
+COMMENT ON COLUMN public.applications.resume_text IS
+  'Resume text (markdown) submitted for this application. Required when custom_resume is true.';
+COMMENT ON COLUMN public.applications.cover_letter_text IS
+  'Cover letter text (markdown) submitted for this application. Required when custom_cover_letter is true.';
+COMMENT ON COLUMN public.applications.custom_resume IS
+  'Resume was tailored for this application. If true, resume_text must be non-empty.';
+COMMENT ON COLUMN public.applications.custom_cover_letter IS
+  'Cover letter was tailored for this application. If true, cover_letter_text must be non-empty.';
 COMMENT ON COLUMN public.applications.pending IS
   'Tracked as actively under review.';
 COMMENT ON COLUMN public.applications.rejected IS
