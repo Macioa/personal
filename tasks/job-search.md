@@ -54,6 +54,7 @@ Inputs:
 | Toptal | https://www.toptal.com |
 | Upwork | https://www.upwork.com |
 | CyberCoders | https://www.cybercoders.com |
+| Handshake | https://joinhandshake.com |
 
 ## ATS / recruiting platforms
 

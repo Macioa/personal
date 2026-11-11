@@ -609,7 +609,11 @@ CREATE TABLE public.projects (
   live_url text[] NOT NULL DEFAULT '{}',
   source_url text[] NOT NULL DEFAULT '{}',
   -- end intentional break of 3rd normal
-  private boolean NOT NULL DEFAULT false
+  private boolean NOT NULL DEFAULT false,
+  vibe_and_test boolean NOT NULL DEFAULT false,
+  curated_generated_code boolean NOT NULL DEFAULT false,
+  hand_written_code boolean NOT NULL DEFAULT false,
+  homepage_url text
 );
 
 CREATE TABLE public.project_skills (
