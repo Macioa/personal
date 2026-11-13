@@ -42,6 +42,8 @@ ALTER TABLE public.skill_group_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.education_and_training ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_employer_portals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.job_references ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employer_job_references ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pitches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pitch_skills ENABLE ROW LEVEL SECURITY;
@@ -61,6 +63,7 @@ ALTER TABLE public.backup_transcripts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transcript_speakers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transcript_turns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transcript_chunks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.alive ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.applications FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.application_interviews FORCE ROW LEVEL SECURITY;
@@ -83,6 +86,8 @@ ALTER TABLE public.skill_group_members FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.education_and_training FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_employer_portals FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.job_references FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.employer_job_references FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_links FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.pitches FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.pitch_skills FORCE ROW LEVEL SECURITY;
@@ -102,6 +107,7 @@ ALTER TABLE public.backup_transcripts FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.transcript_speakers FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.transcript_turns FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.transcript_chunks FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.alive FORCE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE public.applications FROM anon, authenticated;
 REVOKE ALL ON TABLE public.application_interviews FROM anon, authenticated;
@@ -124,6 +130,8 @@ REVOKE ALL ON TABLE public.skill_group_members FROM anon, authenticated;
 REVOKE ALL ON TABLE public.education_and_training FROM anon, authenticated;
 REVOKE ALL ON TABLE public.personal_growth FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employer_employer_portals FROM anon, authenticated;
+REVOKE ALL ON TABLE public.job_references FROM anon, authenticated;
+REVOKE ALL ON TABLE public.employer_job_references FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skill_links FROM anon, authenticated;
 REVOKE ALL ON TABLE public.pitches FROM anon, authenticated;
 REVOKE ALL ON TABLE public.pitch_skills FROM anon, authenticated;
@@ -144,6 +152,7 @@ REVOKE ALL ON TABLE public.backup_transcripts FROM anon, authenticated;
 REVOKE ALL ON TABLE public.transcript_speakers FROM anon, authenticated;
 REVOKE ALL ON TABLE public.transcript_turns FROM anon, authenticated;
 REVOKE ALL ON TABLE public.transcript_chunks FROM anon, authenticated;
+REVOKE ALL ON TABLE public.alive FROM anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_all_pitches() FROM PUBLIC, anon, authenticated;
@@ -183,6 +192,7 @@ REVOKE EXECUTE ON FUNCTION public.search_transcripts(text, extensions.vector, in
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_transcript_window(uuid, numeric, numeric, numeric)
   FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.alive_trim() FROM PUBLIC, anon, authenticated;
 
 -- New objects created by postgres start with no anon/authenticated access.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
@@ -245,7 +255,8 @@ GRANT EXECUTE ON FUNCTION public.get_all_pitches() TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_pitches(text[]) TO resume_reader;
 -- Every column except priority (hidden; sort via project_sort_keys).
 GRANT SELECT (id, name, "desc", problem_to_solve, key_features, tools_used, live_url, source_url, private,
-  objective, result, brag_detail, image_urls, start_day, start_month, start_year, end_day, end_month, end_year)
+  objective, result, brag_detail, image_urls, start_day, start_month, start_year, end_day, end_month, end_year,
+  vibe_and_test, curated_generated_code, hand_written_code, homepage_url)
   ON TABLE public.projects TO resume_reader;
 GRANT SELECT ON TABLE public.project_skills TO resume_reader;
 GRANT SELECT ON TABLE public.project_growth TO resume_reader;
@@ -388,7 +399,8 @@ GRANT SELECT ON TABLE public.pitch_evidence TO chat;
 GRANT SELECT ON TABLE public.pitch_catalog TO chat;
 -- Every column except priority (hidden; sort via project_sort_keys).
 GRANT SELECT (id, name, "desc", problem_to_solve, key_features, tools_used, live_url, source_url, private,
-  objective, result, brag_detail, image_urls, start_day, start_month, start_year, end_day, end_month, end_year)
+  objective, result, brag_detail, image_urls, start_day, start_month, start_year, end_day, end_month, end_year,
+  vibe_and_test, curated_generated_code, hand_written_code, homepage_url)
   ON TABLE public.projects TO chat;
 GRANT SELECT ON TABLE public.project_skills TO chat;
 GRANT SELECT ON TABLE public.project_growth TO chat;
@@ -483,6 +495,20 @@ CREATE POLICY transcriber_all ON public.backup_transcripts
 CREATE POLICY transcriber_read ON public.backups
   FOR SELECT TO transcriber
   USING (true);
+
+-- ---------------------------------------------------------------------------
+-- alive: public keep-alive pings (scripts/keepalive.py, publishable key).
+-- Read and insert only; alive_trim (SECURITY DEFINER) does the deletes.
+-- ---------------------------------------------------------------------------
+GRANT SELECT, INSERT ON TABLE public.alive TO anon, authenticated;
+
+CREATE POLICY alive_public_read ON public.alive
+  FOR SELECT TO anon, authenticated
+  USING (true);
+
+CREATE POLICY alive_public_insert ON public.alive
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
 
 -- pg_stat_statements: PUBLIC by default; restrict to API roles so login roles
 -- (transcriber) can't read other roles' query text.

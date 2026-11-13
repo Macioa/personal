@@ -115,6 +115,27 @@ CREATE TABLE public.employer_employer_portals (
   PRIMARY KEY (employer_id, employer_portal_id)
 );
 
+CREATE TABLE public.job_references (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  aliases text,
+  latest_title text,
+  older_titles text,
+  phones text,
+  emails text,
+  linkedin text,
+  preferred boolean NOT NULL DEFAULT false,
+  notes text,
+  private boolean NOT NULL DEFAULT false,
+  relation text
+);
+
+CREATE TABLE public.employer_job_references (
+  employer_id uuid NOT NULL REFERENCES public.employer (id) ON DELETE CASCADE,
+  job_reference_id uuid NOT NULL REFERENCES public.job_references (id) ON DELETE CASCADE,
+  PRIMARY KEY (employer_id, job_reference_id)
+);
+
 -- One row links a skill to exactly one of: title, employer, education, growth.
 CREATE TABLE public.skill_links (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -146,6 +167,10 @@ COMMENT ON COLUMN public.employer_portals.w2_or_tax IS
   'True if the portal holds W-2s, pay stubs or other tax documents.';
 COMMENT ON COLUMN public.employer_portals.contains_contracts IS
   'True if the portal holds signed contracts or agreements.';
+COMMENT ON COLUMN public.job_references.private IS
+  'True marks the reference as not to be shared or used.';
+COMMENT ON COLUMN public.job_references.relation IS
+  'How the reference worked with me (free text).';
 COMMENT ON COLUMN public.education_and_training.remote IS
   'True if attended remotely, false if onsite; null if unknown.';
 COMMENT ON COLUMN public.education_and_training.private IS
@@ -171,7 +196,7 @@ COMMENT ON COLUMN public.skills.private IS
 COMMENT ON COLUMN public.skill_links.private IS
   'True hides this link from resume_reader, so it is left out of skill totals.';
 
--- Usage spans come from the linked row's dates. Missing start parts default to
+-- Usage spans come from the linked row's dates (skill_links and project_skills). Missing start parts default to
 -- Jan 1; missing end parts default to the last day of the year/month; a null
 -- end_year means ongoing (today). Spans of all given skills are unioned with
 -- overlaps merged. precise = merged days; start_to_end = last_used -
@@ -197,6 +222,11 @@ AS $$
     LEFT JOIN public.education_and_training ed ON ed.id = l.education_and_training_id
     LEFT JOIN public.personal_growth g ON g.id = l.personal_growth_id
     WHERE l.skill_id = ANY (p_skill_ids)
+    UNION ALL
+    SELECT p.start_year, p.start_month, p.start_day, p.end_year, p.end_month, p.end_day
+    FROM public.project_skills ps
+    JOIN public.projects p ON p.id = ps.project_id
+    WHERE ps.skill_id = ANY (p_skill_ids)
   ),
   spans AS (
     SELECT make_date(sy, coalesce(sm, 1), coalesce(sd, 1)) AS s,

@@ -8,5 +8,5 @@ alwaysApply: true
 Before an email reply or a job application, load `education_and_training`.
 
 - Quote those rows for school, field, attendance, and completion. Do not invent or contradict them.
-- `completed = false` means no degree: never claim graduated, a degree, or a graduation date.
+- `completed = false` means no degree: never claim graduated, a degree, or a graduation date. Only state years attended and area of study. When explicitly asked check db for completion status. Never lie or make assumptions about education. Always check db data.
 - Do not copy those facts into repo files.

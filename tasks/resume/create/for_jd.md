@@ -47,12 +47,14 @@ Sections, in order:
    - Add "+ Other" only if the DB has a distinct skill of the same kind; otherwise "<jd skill>" | its yrs.
    - Name sub-tools or services in parentheses only when the jd names them and they match db records.
 4. **Work Experience** - Include all non-private-marked work experience. Each entry: top level summary (required: build from `employer.company_desc` + the summary sentence of `resume_desc`; if neither exists, flag it to the user rather than omit); top 3 most applicable line items; skills subsection with ~3 most JD-applicable skills. Use explicit hard skills when they match directly, otherwise use the abstract equivalent. Ex: if jd requests FastAPI, list FastAPI where used; elsewhere say "web frameworks like FastAPI".
-5. **Projects** - Include projects with applicable skills; omit section if none.
+5. **Projects** - Include projects with applicable skills; omit section if none. Each entry: name, brief one-line description, tools, and link. Link = `projects.homepage_url` (website) whenever set; else first `source_url`.
 6. **Education, Training, Certifications** - Always include all non-private-marked `education_and_training` rows, split into three sections by `type`:
-   - **Education**: bachelors, masters, phd
+   - **Education**: bachelors, masters, phd. List school, years attended, and area of study only; no degree type or completion status unless explicitly asked (see `education-incomplete.mdc`).
    - **Training**: training, training_certificate
    - **Certifications & Clearances**: certificate, clearance
    - `other`: flag to the user.
+7. **Disclaimer** - Always end with a horizontal rule and this fine print (small, gray), verbatim:
+   > This resume was created from a database of personal resume info selected for this role and manually reviewed before sending. Details of the generation tool are available from [github.com/Macioa/personal](https://github.com/Macioa/personal). Data can be explored from the chat utility at [ryanwademontgomery.com](https://ryanwademontgomery.com).
 
 ## Phase 3: Cover Letter
 

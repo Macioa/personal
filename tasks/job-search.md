@@ -55,6 +55,7 @@ Inputs:
 | Upwork | https://www.upwork.com |
 | CyberCoders | https://www.cybercoders.com |
 | Handshake | https://joinhandshake.com |
+| Remote Hunter | https://www.remotehunter.com |
 
 ## ATS / recruiting platforms
 
