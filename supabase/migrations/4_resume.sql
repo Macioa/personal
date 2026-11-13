@@ -423,7 +423,9 @@ BEGIN
   PERFORM net.http_post(
     url := 'https://yxmzfpicfrlvzqogzmyl.supabase.co/functions/v1/embed-skill',
     body := jsonb_build_object('table', TG_TABLE_NAME, 'id', NEW.id),
-    headers := '{"Content-Type":"application/json"}'::jsonb);
+    -- embed-skill runs verify_jwt: send the legacy anon JWT kept in Vault.
+    headers := jsonb_build_object('Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'embed_skill_jwt')));
   RETURN NEW;
 END;
 $$;

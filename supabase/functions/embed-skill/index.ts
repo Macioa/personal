@@ -24,6 +24,20 @@ type Route = "search" | "embedOne" | "backfill" | "invalid";
 const embedText = async (text: string) =>
   JSON.stringify(await session.run(text, { mean_pool: true, normalize: true }));
 
+// Browser search calls (homepage chat): CORS only for ALLOWED_ORIGINS (the secret get-jwt uses).
+const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
+  .split(",").map((o) => o.trim()).filter(Boolean);
+
+function withCors(res: Response, origin: string | null) {
+  if (origin && allowedOrigins.includes(origin)) {
+    res.headers.set("Access-Control-Allow-Origin", origin);
+    res.headers.set("Access-Control-Allow-Headers", "content-type, apikey, authorization");
+    res.headers.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.headers.set("Vary", "Origin");
+  }
+  return res;
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -75,6 +89,12 @@ async function handleEmbed({ table, id, all }: EmbedSkillBody) {
 }
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("origin");
+  if (req.method === "OPTIONS") return withCors(new Response("ok"), origin);
+  return withCors(await handle(req), origin);
+});
+
+async function handle(req: Request) {
   try {
     const body: EmbedSkillBody = await req.json();
     switch (route(body)) {
@@ -90,4 +110,4 @@ Deno.serve(async (req) => {
     console.error(err);
     return json({ error: "internal error" }, 500);
   }
-});
+}
