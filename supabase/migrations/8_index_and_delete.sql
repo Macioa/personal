@@ -105,7 +105,7 @@ CREATE INDEX abuse_severity_band_idx
 CREATE INDEX gemini_requests_sent_at_idx ON public.gemini_requests (sent_at);
 
 -- get_skill() matches on lower(name).
-CREATE INDEX skills_lower_name_idx
+CREATE UNIQUE INDEX skills_lower_name_idx
   ON public.skills (lower(name));
 
 CREATE INDEX skill_group_members_group_id_idx

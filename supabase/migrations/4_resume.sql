@@ -25,6 +25,7 @@ CREATE TABLE public.employment_titles (
   name text,
   "desc" text,
   bullets text[],
+  location text,
   start_day integer,
   start_month integer,
   start_year integer,
@@ -51,7 +52,8 @@ CREATE TABLE public.skills (
   type public.skill_type,
   private boolean NOT NULL DEFAULT false,
   priority integer,
-  embedding extensions.vector(384)
+  embedding extensions.vector(384),
+  aliases text[] NOT NULL DEFAULT '{}'
 );
 
 CREATE TABLE public.skill_groups (
@@ -162,6 +164,8 @@ COMMENT ON COLUMN public.employment_titles."desc" IS
   'Resume text for this title: role description and employee contributions. Leave null if uncertain.';
 COMMENT ON COLUMN public.employment_titles.bullets IS
   'Resume bullet points for this title, in display order: one contribution or fact per element. Leave null if uncertain.';
+COMMENT ON COLUMN public.employment_titles.location IS
+  'Work location for this title as City, ST (or region). Use remote for remote/onsite; leave null if unknown.';
 COMMENT ON COLUMN public.employment_titles.remote IS
   'True if the role was remote, false if onsite; null if unknown.';
 COMMENT ON COLUMN public.employment_titles.private IS
@@ -184,6 +188,8 @@ COMMENT ON COLUMN public.personal_growth.private IS
   'True hides the row (and its skill links) from resume_reader.';
 COMMENT ON COLUMN public.skills.type IS
   'Kind of skill (hard/soft). For display grouping use skill_group_members.';
+COMMENT ON COLUMN public.skills.aliases IS
+  'Other names for this skill (e.g. Node.js for Node). Matched by search_skills only; not displayed.';
 COMMENT ON COLUMN public.skills.priority IS
   'User defined rankings for skill significance.';
 COMMENT ON COLUMN public.skills.embedding IS
@@ -332,7 +338,7 @@ AS $$
           LIMIT 3);
 $$;
 
--- Per term: the skill (exact name, else nearest by embedding) and its groups
+-- Per term: the skill (exact name, else name part, else alias, else normalized name, else nearest by embedding) and its groups
 -- (or nearest groups if no skill), with years. Group years exclude the skill.
 -- Skill and group years both default to precise (merged spans, gaps excluded).
 CREATE OR REPLACE FUNCTION public.search_skills(
@@ -355,6 +361,19 @@ AS $$
   matched AS (
     SELECT t.*, coalesce(
       (SELECT s.id FROM public.skills s WHERE lower(s.name) = lower(t.term) LIMIT 1),
+      -- Term equals one part of a combined name ("Typescript/Javascript", "Node, Express").
+      (SELECT s.id FROM public.skills s
+       WHERE lower(t.term) = ANY (SELECT btrim(x) FROM regexp_split_to_table(lower(s.name), '[/,&+]|\s+and\s+') x)
+       LIMIT 1),
+      -- Alias ("GCP" for "Google Cloud").
+      (SELECT s.id FROM public.skills s
+       WHERE lower(t.term) = ANY (SELECT lower(a) FROM unnest(s.aliases) a)
+       LIMIT 1),
+      -- Punctuation/space-insensitive ("Node.js" = "NodeJS", "CI/CD" = "CICD").
+      (SELECT s.id FROM public.skills s
+       WHERE regexp_replace(lower(s.name), '[^a-z0-9+#]', '', 'g')
+           = regexp_replace(lower(t.term), '[^a-z0-9+#]', '', 'g')
+       LIMIT 1),
       (SELECT s.id FROM public.skills s
        WHERE t.emb IS NOT NULL AND s.embedding IS NOT NULL
          AND 1 - (s.embedding OPERATOR(extensions.<=>) t.emb) >= p_min_sim

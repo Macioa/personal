@@ -52,6 +52,7 @@ CREATE TYPE public.skill_type AS ENUM (
 );
 
 CREATE TYPE public.education_type AS ENUM (
+  'high_school',
   'bachelors',
   'masters',
   'phd',

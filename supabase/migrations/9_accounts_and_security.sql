@@ -235,7 +235,7 @@ GRANT SELECT ON TABLE public.employment_titles TO resume_reader;
 GRANT SELECT ON TABLE public.education_and_training TO resume_reader;
 GRANT SELECT ON TABLE public.personal_growth TO resume_reader;
 -- Every column except priority (hidden; sort via skill_sort_keys).
-GRANT SELECT (id, name, "desc", type, private, embedding) ON TABLE public.skills TO resume_reader;
+GRANT SELECT (id, name, "desc", type, private, embedding, aliases) ON TABLE public.skills TO resume_reader;
 GRANT SELECT ON TABLE public.skill_links TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO resume_reader;
@@ -392,7 +392,7 @@ GRANT SELECT ON TABLE public.employment_titles TO chat;
 GRANT SELECT ON TABLE public.education_and_training TO chat;
 GRANT SELECT ON TABLE public.personal_growth TO chat;
 -- Every column except priority (hidden; sort via skill_sort_keys).
-GRANT SELECT (id, name, "desc", type, private, embedding) ON TABLE public.skills TO chat;
+GRANT SELECT (id, name, "desc", type, private, embedding, aliases) ON TABLE public.skills TO chat;
 GRANT SELECT ON TABLE public.skill_links TO chat;
 GRANT SELECT ON TABLE public.pitches TO chat;
 GRANT SELECT ON TABLE public.pitch_skills TO chat;
