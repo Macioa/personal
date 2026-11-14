@@ -4,4 +4,4 @@ description: Triage unread mail into temp/mail action mds with draft replies, fi
 disable-model-invocation: true
 ---
 
-Read `tasks/email-prep.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.
+Read `tasks/applications/email-prep.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.

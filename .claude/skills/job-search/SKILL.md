@@ -4,4 +4,4 @@ description: Find the top 25 recent job posts matching Supabase job preferences 
 disable-model-invocation: true
 ---
 
-Read `tasks/job-search.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.
+Read `tasks/applications/job-search.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.

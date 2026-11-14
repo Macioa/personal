@@ -36,7 +36,7 @@ Identify ADE skills pertaining to: Web browsing, PDF management, database connec
 
 Given: Guidance and feedback from user for resume creation
 
-Output: resume as PDF and MD in the temp folder with one JD specific subfolder.
+Output: resume as PDF and MD in the temp folder with one JD specific subfolder. File name: `name-careertitle-company-resume.<ext>` (e.g. `ryan-montgomery-customer-platform-engineer-iii-blue-origin-resume.pdf`).
 
 Sections, in order:
 
@@ -61,4 +61,4 @@ Sections, in order:
 1. Ask user whether they want a cover letter and for guidance.
 2. Draft it from best fit DB pitches plus that guidance and show it.
 3. **STOP: wait for confirmation.**
-4. Save it as PDF and MD in the resume files' existing temp subfolder.
+4. Save it as PDF and MD in the resume files' existing temp subfolder, named `name-careertitle-company-cover-letter.<ext>`.

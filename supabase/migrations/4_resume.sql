@@ -163,14 +163,6 @@ COMMENT ON TABLE public.hardships IS
 COMMENT ON COLUMN public.hardships.private IS
   'True hides the row from resume_reader and chat.';
 
--- Sort keys without exposing priority values. Owner-run so readers need no column access.
-CREATE OR REPLACE FUNCTION public.skill_sort_keys()
-RETURNS TABLE (id uuid, sort_rank bigint)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
-AS $$ SELECT s.id, dense_rank() OVER (ORDER BY s.priority NULLS LAST) FROM public.skills s; $$;
-COMMENT ON FUNCTION public.skill_sort_keys() IS
-  'Rank of each skill by priority (1 first, null last). Lets readers sort without seeing priority.';
-
 -- ---------------------------------------------------------------------------
 -- Pitches: user-written guidance for producing job-specific material
 -- ---------------------------------------------------------------------------
@@ -184,37 +176,6 @@ CREATE TABLE public.pitches (
   keywords text[] NOT NULL DEFAULT '{}'
 );
 
-CREATE OR REPLACE FUNCTION public.get_all_pitches()
-RETURNS jsonb
-LANGUAGE sql
-STABLE
-AS $$
-  SELECT coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-      'slug', p.slug,
-      'type', p.type,
-      'title', p.title,
-      'use_when', p.use_when))
-    ORDER BY p.type, p.slug), '[]'::jsonb)
-  FROM public.pitches p;
-$$;
-
-CREATE OR REPLACE FUNCTION public.get_pitches(p_slugs text[])
-RETURNS jsonb
-LANGUAGE sql
-STABLE
-AS $$
-  SELECT coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-      'slug', p.slug,
-      'type', p.type,
-      'title', p.title,
-      'use_when', p.use_when,
-      'material', p.material,
-      'keywords', to_jsonb(nullif(p.keywords, '{}'))))
-    ORDER BY p.type, p.slug), '[]'::jsonb)
-  FROM public.pitches p
-  WHERE p.slug = ANY (p_slugs);
-$$;
-
 COMMENT ON TABLE public.pitches IS
   'Select pitches that fit the job post; write the output from them.';
 COMMENT ON COLUMN public.pitches.slug IS
@@ -225,10 +186,6 @@ COMMENT ON COLUMN public.pitches.material IS
   'Primary source for generated text. Adapt it to the job post; add no claims beyond it and the evidence.';
 COMMENT ON COLUMN public.pitches.keywords IS
   'Used for finding appropriate pitches.';
-COMMENT ON FUNCTION public.get_all_pitches() IS
-  'Used for choosing pitches for a job post. Then pitch_detail(slugs, mode) for the picked ones.';
-COMMENT ON FUNCTION public.get_pitches(text[]) IS
-  'Pitch text for the given slugs, without skills or evidence. Use pitch_detail for those.';
 
 -- ---------------------------------------------------------------------------
 -- Projects: portfolio work, linked to skills and growth
@@ -262,43 +219,6 @@ CREATE TABLE public.projects (
   homepage_url text
 );
 
-CREATE OR REPLACE FUNCTION public.project_sort_keys()
-RETURNS TABLE (id uuid, sort_rank bigint)
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
-AS $$ SELECT p.id, dense_rank() OVER (ORDER BY p.priority DESC NULLS LAST) FROM public.projects p; $$;
-COMMENT ON FUNCTION public.project_sort_keys() IS
-  'Rank of each project by priority (higher first, null last). Lets readers sort without seeing priority.';
-
-CREATE OR REPLACE FUNCTION public.get_projects()
-RETURNS jsonb
-LANGUAGE sql
-STABLE
-AS $$
-  SELECT coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-      'name', p.name,
-      'desc', p."desc",
-      'start_day', p.start_day,
-      'start_month', p.start_month,
-      'start_year', p.start_year,
-      'end_day', p.end_day,
-      'end_month', p.end_month,
-      'end_year', p.end_year,
-      'problem_to_solve', to_jsonb(nullif(p.problem_to_solve, '{}')),
-      'objective', to_jsonb(nullif(p.objective, '{}')),
-      'result', to_jsonb(nullif(p.result, '{}')),
-      'brag_detail', to_jsonb(nullif(p.brag_detail, '{}')),
-      'key_features', to_jsonb(nullif(p.key_features, '{}')),
-      'tools_used', to_jsonb(nullif(p.tools_used, '{}')),
-      'image_urls', to_jsonb(nullif(p.image_urls, '{}')),
-      'live_url', to_jsonb(nullif(p.live_url, '{}')),
-      'source_url', to_jsonb(nullif(p.source_url, '{}'))))
-    ORDER BY k.sort_rank,
-      p.start_year DESC NULLS LAST, p.start_month DESC NULLS LAST, p.start_day DESC NULLS LAST,
-      p.name), '[]'::jsonb)
-  FROM public.projects p
-  JOIN public.project_sort_keys() k ON k.id = p.id;
-$$;
-
 COMMENT ON TABLE public.projects IS
   'Portfolio projects. Read: get_projects().';
 COMMENT ON COLUMN public.projects.priority IS
@@ -309,6 +229,4 @@ COMMENT ON COLUMN public.projects.objective IS
   'Abstract goals for project.';
 COMMENT ON COLUMN public.projects.brag_detail IS
   'Project details to brag about.';
-COMMENT ON FUNCTION public.get_projects() IS
-  'All visible projects as a jsonb array, ordered by name.';
 
