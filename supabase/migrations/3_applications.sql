@@ -69,7 +69,7 @@ CREATE TABLE public.application_conversations (
   type public.conversation_type NOT NULL,
   short_summary varchar(500),
   content text,
-  occurred_at timestamptz
+  occurred_at timestamptz(0)
 );
 
 CREATE TABLE public.todolist (
@@ -78,8 +78,8 @@ CREATE TABLE public.todolist (
   application_conversation_id uuid REFERENCES public.application_conversations (id) ON DELETE SET NULL,
   name text NOT NULL,
   description text,
-  target_date timestamptz,
-  deadline_date timestamptz,
+  target_date timestamptz(0),
+  deadline_date timestamptz(0),
   time_estimate interval,
   started boolean NOT NULL DEFAULT false,
   completed boolean NOT NULL DEFAULT false,
@@ -129,12 +129,6 @@ CREATE TABLE public.logins (
   login_url text,
   oauth boolean NOT NULL DEFAULT false,
   oauth_email text
-);
-
-CREATE TABLE public.application_logins (
-  application_id uuid NOT NULL REFERENCES public.applications (id) ON DELETE CASCADE,
-  login_id uuid NOT NULL REFERENCES public.logins (id) ON DELETE CASCADE,
-  PRIMARY KEY (application_id, login_id)
 );
 
 -- ---------------------------------------------------------------------------
@@ -268,8 +262,8 @@ CREATE TABLE public.abuse (
   indirect_imitation boolean NOT NULL DEFAULT false,
   evidence_quote text,
   hours_lost numeric(8, 2),
-  impact_band smallint REFERENCES public.abuse_impact_rubric (band),
-  severity_band smallint REFERENCES public.abuse_severity_rubric (band),
+  impact_band smallint REFERENCES public.abuse_impact_rubric (band) ON DELETE RESTRICT,
+  severity_band smallint REFERENCES public.abuse_severity_rubric (band) ON DELETE RESTRICT,
   impact_escalators text[] NOT NULL DEFAULT '{}',
   severity_escalators text[] NOT NULL DEFAULT '{}',
   protected_trait boolean NOT NULL DEFAULT false,
@@ -383,10 +377,32 @@ COMMENT ON COLUMN public.abuse.repetition_without_acknowledgement_of_repetition 
 COMMENT ON COLUMN public.abuse.no_submission_confirmation IS
   'Did not receive submission confirmation after verbally told otherwise';
 
-
 COMMENT ON TABLE public.application_conversations IS
   'Non-interview communications regarding application.';
 COMMENT ON TABLE public.application_interviews IS
   'Scheduled interviews for application.';
 COMMENT ON COLUMN public.application_interviews.meeting_invite IS
   'Raw text with meeting link included.';
+
+-- ---------------------------------------------------------------------------
+-- Job references
+-- ---------------------------------------------------------------------------
+CREATE TABLE public.job_references (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  aliases text,
+  latest_title text,
+  older_titles text,
+  phones text,
+  emails text,
+  linkedin text,
+  preferred boolean NOT NULL DEFAULT false,
+  notes text,
+  private boolean NOT NULL DEFAULT false,
+  relation text
+);
+
+COMMENT ON COLUMN public.job_references.private IS
+  'True marks the reference as not to be shared or used.';
+COMMENT ON COLUMN public.job_references.relation IS
+  'How the reference worked with me (free text).';

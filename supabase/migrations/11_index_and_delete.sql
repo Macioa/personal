@@ -1,14 +1,7 @@
 -- Display all timestamptz values in Central time (storage stays UTC).
 ALTER DATABASE postgres SET timezone TO 'America/Chicago';
 
--- Store timestamps to the second.
-ALTER TABLE public.application_conversations
-  ALTER COLUMN occurred_at TYPE timestamptz(0);
-ALTER TABLE public.todolist
-  ALTER COLUMN target_date TYPE timestamptz(0),
-  ALTER COLUMN deadline_date TYPE timestamptz(0);
-
--- Indexes and ON DELETE rules for tables defined in earlier migrations.
+-- Indexes for tables defined in earlier migrations.
 
 CREATE INDEX applications_user_id_idx
   ON public.applications (user_id);
@@ -111,59 +104,9 @@ CREATE UNIQUE INDEX skills_lower_name_idx
 CREATE INDEX skill_group_members_group_id_idx
   ON public.skill_group_members (group_id);
 
--- search_skills() vector legs (cosine).
-CREATE INDEX skills_embedding_idx
-  ON public.skills USING hnsw (embedding extensions.vector_cosine_ops);
-CREATE INDEX skill_groups_embedding_idx
-  ON public.skill_groups USING hnsw (embedding extensions.vector_cosine_ops);
-
 CREATE INDEX transcript_turns_speaker_idx
   ON public.transcript_turns (transcript_id, speaker_no);
-
--- search_transcripts() vector leg (cosine).
-CREATE INDEX transcript_chunks_embedding_idx
-  ON public.transcript_chunks USING hnsw (embedding extensions.vector_cosine_ops);
-
--- search_transcripts() keyword leg.
-CREATE INDEX transcript_chunks_fts_idx
-  ON public.transcript_chunks USING gin (fts);
 
 -- At most one self speaker per transcript.
 CREATE UNIQUE INDEX transcript_speakers_one_self_idx
   ON public.transcript_speakers (transcript_id) WHERE is_self;
-
--- ---------------------------------------------------------------------------
--- Delete rules
--- ---------------------------------------------------------------------------
--- Pitch links follow their pitch, skill or proof row. pitch_evidence needs
--- exactly one target, so SET NULL would fail its check; cascade instead.
-ALTER TABLE public.pitch_skills
-  DROP CONSTRAINT pitch_skills_pitch_id_fkey,
-  ADD CONSTRAINT pitch_skills_pitch_id_fkey
-    FOREIGN KEY (pitch_id) REFERENCES public.pitches (id) ON DELETE CASCADE,
-  DROP CONSTRAINT pitch_skills_skill_id_fkey,
-  ADD CONSTRAINT pitch_skills_skill_id_fkey
-    FOREIGN KEY (skill_id) REFERENCES public.skills (id) ON DELETE CASCADE;
-
-ALTER TABLE public.pitch_evidence
-  DROP CONSTRAINT pitch_evidence_pitch_id_fkey,
-  ADD CONSTRAINT pitch_evidence_pitch_id_fkey
-    FOREIGN KEY (pitch_id) REFERENCES public.pitches (id) ON DELETE CASCADE,
-  DROP CONSTRAINT pitch_evidence_employment_title_id_fkey,
-  ADD CONSTRAINT pitch_evidence_employment_title_id_fkey
-    FOREIGN KEY (employment_title_id) REFERENCES public.employment_titles (id) ON DELETE CASCADE,
-  DROP CONSTRAINT pitch_evidence_employer_id_fkey,
-  ADD CONSTRAINT pitch_evidence_employer_id_fkey
-    FOREIGN KEY (employer_id) REFERENCES public.employer (id) ON DELETE CASCADE,
-  DROP CONSTRAINT pitch_evidence_education_and_training_id_fkey,
-  ADD CONSTRAINT pitch_evidence_education_and_training_id_fkey
-    FOREIGN KEY (education_and_training_id) REFERENCES public.education_and_training (id) ON DELETE CASCADE;
-
--- Rubric bands are fixed; block deleting one that scored rows still use.
-ALTER TABLE public.abuse
-  DROP CONSTRAINT abuse_impact_band_fkey,
-  ADD CONSTRAINT abuse_impact_band_fkey
-    FOREIGN KEY (impact_band) REFERENCES public.abuse_impact_rubric (band) ON DELETE RESTRICT,
-  DROP CONSTRAINT abuse_severity_band_fkey,
-  ADD CONSTRAINT abuse_severity_band_fkey
-    FOREIGN KEY (severity_band) REFERENCES public.abuse_severity_rubric (band) ON DELETE RESTRICT;

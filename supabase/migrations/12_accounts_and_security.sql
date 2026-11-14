@@ -41,6 +41,7 @@ ALTER TABLE public.skill_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_group_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.education_and_training ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hardships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_employer_portals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.job_references ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_job_references ENABLE ROW LEVEL SECURITY;
@@ -85,6 +86,7 @@ ALTER TABLE public.skill_groups FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_group_members FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.education_and_training FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.hardships FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_employer_portals FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.job_references FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_job_references FORCE ROW LEVEL SECURITY;
@@ -129,6 +131,7 @@ REVOKE ALL ON TABLE public.skill_groups FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skill_group_members FROM anon, authenticated;
 REVOKE ALL ON TABLE public.education_and_training FROM anon, authenticated;
 REVOKE ALL ON TABLE public.personal_growth FROM anon, authenticated;
+REVOKE ALL ON TABLE public.hardships FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employer_employer_portals FROM anon, authenticated;
 REVOKE ALL ON TABLE public.job_references FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employer_job_references FROM anon, authenticated;
@@ -228,12 +231,17 @@ REVOKE EXECUTE ON FUNCTION public.graphql_read(text, jsonb) FROM PUBLIC, anon, a
 CREATE ROLE resume_reader LOGIN NOINHERIT;
 -- Lets PostgREST switch to resume_reader for get-jwt JWTs.
 GRANT resume_reader TO authenticator;
+-- chat (section below) is created here: resume_reader_select policies name it.
+CREATE ROLE chat LOGIN NOINHERIT;
+-- Lets PostgREST switch to chat for get-jwt JWTs.
+GRANT chat TO authenticator;
 
 GRANT USAGE ON SCHEMA public TO resume_reader;
 GRANT SELECT ON TABLE public.employer TO resume_reader;
 GRANT SELECT ON TABLE public.employment_titles TO resume_reader;
 GRANT SELECT ON TABLE public.education_and_training TO resume_reader;
 GRANT SELECT ON TABLE public.personal_growth TO resume_reader;
+GRANT SELECT ON TABLE public.hardships TO resume_reader;
 -- Every column except priority (hidden; sort via skill_sort_keys).
 GRANT SELECT (id, name, "desc", type, private, embedding, aliases) ON TABLE public.skills TO resume_reader;
 GRANT SELECT ON TABLE public.skill_links TO resume_reader;
@@ -272,36 +280,40 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA graphql TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.graphql_read(text, jsonb) TO resume_reader;
 
 CREATE POLICY resume_reader_select ON public.employer
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (NOT private);
 
 -- Parent lookups below are themselves filtered by resume_reader's policies.
 CREATE POLICY resume_reader_select ON public.employment_titles
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (NOT private AND EXISTS (SELECT 1 FROM public.employer e WHERE e.id = employer_id));
 
 CREATE POLICY resume_reader_select ON public.education_and_training
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (NOT private);
 
 CREATE POLICY resume_reader_select ON public.personal_growth
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
+  USING (NOT private);
+
+CREATE POLICY resume_reader_select ON public.hardships
+  FOR SELECT TO resume_reader, chat
   USING (NOT private);
 
 CREATE POLICY resume_reader_select ON public.skills
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (NOT private);
 
 CREATE POLICY resume_reader_select ON public.skill_groups
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (true);
 
 CREATE POLICY resume_reader_select ON public.skill_group_members
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (EXISTS (SELECT 1 FROM public.skills s WHERE s.id = skill_id));
 
 CREATE POLICY resume_reader_select ON public.skill_links
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (
     NOT private
     AND EXISTS (SELECT 1 FROM public.skills s WHERE s.id = skill_id)
@@ -316,15 +328,15 @@ CREATE POLICY resume_reader_select ON public.skill_links
   );
 
 CREATE POLICY resume_reader_select ON public.pitches
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (true);
 
 CREATE POLICY resume_reader_select ON public.pitch_skills
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (EXISTS (SELECT 1 FROM public.skills s WHERE s.id = skill_id));
 
 CREATE POLICY resume_reader_select ON public.pitch_evidence
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (
     (employment_title_id IS NULL
       OR EXISTS (SELECT 1 FROM public.employment_titles t WHERE t.id = employment_title_id))
@@ -335,25 +347,25 @@ CREATE POLICY resume_reader_select ON public.pitch_evidence
   );
 
 CREATE POLICY resume_reader_select ON public.pitch_growth
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (EXISTS (SELECT 1 FROM public.personal_growth g WHERE g.id = personal_growth_id));
 
 CREATE POLICY resume_reader_select ON public.projects
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (NOT private);
 
 CREATE POLICY resume_reader_select ON public.project_skills
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id)
     AND EXISTS (SELECT 1 FROM public.skills s WHERE s.id = skill_id));
 
 CREATE POLICY resume_reader_select ON public.project_growth
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id)
     AND EXISTS (SELECT 1 FROM public.personal_growth g WHERE g.id = personal_growth_id));
 
 CREATE POLICY resume_reader_select ON public.pitch_projects
-  FOR SELECT TO resume_reader
+  FOR SELECT TO resume_reader, chat
   USING (EXISTS (SELECT 1 FROM public.projects p WHERE p.id = project_id));
 
 CREATE POLICY resume_reader_select ON public.personal_info_and_docs
@@ -366,9 +378,6 @@ CREATE POLICY resume_reader_select ON public.personal_info_and_docs
 -- non-private row filters. Set its password out of band:
 --   ALTER ROLE chat PASSWORD '...';
 -- ---------------------------------------------------------------------------
-CREATE ROLE chat LOGIN NOINHERIT;
--- Lets PostgREST switch to chat for get-jwt JWTs.
-GRANT chat TO authenticator;
 
 GRANT USAGE ON SCHEMA public TO chat;
 GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO chat;
@@ -391,6 +400,7 @@ GRANT SELECT ON TABLE public.employer TO chat;
 GRANT SELECT ON TABLE public.employment_titles TO chat;
 GRANT SELECT ON TABLE public.education_and_training TO chat;
 GRANT SELECT ON TABLE public.personal_growth TO chat;
+GRANT SELECT ON TABLE public.hardships TO chat;
 -- Every column except priority (hidden; sort via skill_sort_keys).
 GRANT SELECT (id, name, "desc", type, private, embedding, aliases) ON TABLE public.skills TO chat;
 GRANT SELECT ON TABLE public.skill_links TO chat;
@@ -412,23 +422,6 @@ GRANT USAGE ON SCHEMA graphql TO chat;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA graphql TO chat;
 GRANT EXECUTE ON FUNCTION public.graphql_read(text, jsonb) TO chat;
 
--- Share resume_reader's private-row filters.
-ALTER POLICY resume_reader_select ON public.employer TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.employment_titles TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.education_and_training TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.personal_growth TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.skills TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.skill_groups TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.skill_group_members TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.skill_links TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.pitches TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.pitch_skills TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.pitch_evidence TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.projects TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.project_skills TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.project_growth TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.pitch_projects TO resume_reader, chat;
-ALTER POLICY resume_reader_select ON public.pitch_growth TO resume_reader, chat;
 
 -- Write-only: chat can log messages but not read them back.
 GRANT EXECUTE ON FUNCTION public.send_message(text, text) TO chat;

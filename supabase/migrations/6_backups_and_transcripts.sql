@@ -3,8 +3,8 @@
 -- an interview; transcripts link 1:1 to a backup and are stored as labeled turns
 -- plus embedded chunks (bge-base-en-v1.5, 768 dims, computed by scripts/vector).
 -- vector type: 1_config_and_extensions.sql.
---   transcript_context(backup)   chunk header: type · agency · company · position · date
---   search_transcripts(q, emb)   hybrid vector + full-text search (emb optional)
+--   transcript_context(backup)   [9_embeddings_and_search] chunk header: type · agency · company · position · date
+--   search_transcripts(q, emb)   [9_embeddings_and_search] hybrid vector + full-text search (emb optional)
 --   get_transcript_window(...)   labeled turns around a hit
 -- ---------------------------------------------------------------------------
 
@@ -25,15 +25,6 @@ CREATE TABLE public.backups (
 COMMENT ON TABLE public.backups IS 'Call/message recordings. Link: backup_sources, backup_transcripts.';
 COMMENT ON COLUMN public.backups.backup_location IS 'Where the file lives, e.g. phonecall-backups (Drive).';
 COMMENT ON COLUMN public.backups.backup_format IS 'amr (copied as-is) or mp4 (compressed archive).';
-
--- 1:1 backup -> exactly one communication or interview.
-CREATE TABLE public.backup_sources (
-  backup_id uuid PRIMARY KEY REFERENCES public.backups (id) ON DELETE CASCADE,
-  application_conversation_id uuid UNIQUE REFERENCES public.application_conversations (id) ON DELETE CASCADE,
-  interview_id uuid UNIQUE REFERENCES public.application_interviews (id) ON DELETE CASCADE,
-  CONSTRAINT backup_sources_one_target_chk
-    CHECK (num_nonnulls(application_conversation_id, interview_id) = 1)
-);
 
 -- ---------------------------------------------------------------------------
 -- Transcripts
@@ -58,12 +49,6 @@ COMMENT ON COLUMN public.transcripts.embedding_model IS
   'Model used for transcript_chunks embeddings.';
 COMMENT ON COLUMN public.transcripts.chunker_version IS
   'Chunking logic version; re-chunk when older than current.';
-
--- 1:1 backup <-> transcript.
-CREATE TABLE public.backup_transcripts (
-  backup_id uuid PRIMARY KEY REFERENCES public.backups (id) ON DELETE CASCADE,
-  transcript_id uuid NOT NULL UNIQUE REFERENCES public.transcripts (id) ON DELETE CASCADE
-);
 
 -- Speakers are per transcript, not people in the DB.
 CREATE TABLE public.transcript_speakers (
@@ -128,98 +113,8 @@ COMMENT ON COLUMN public.transcript_chunks.embedding IS
   'embedding_model vector of context_header + content.';
 
 -- ---------------------------------------------------------------------------
--- Functions
+-- Functions (transcript_context, search_transcripts: 9_embeddings_and_search.sql)
 -- ---------------------------------------------------------------------------
--- Chunk header for a backup. DEFINER so transcriber needn't read applications.
-CREATE FUNCTION public.transcript_context(p_backup_id uuid)
-RETURNS text
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-  SELECT concat_ws(' · ',
-    coalesce(c.type::text, i.type::text || ' interview'),
-    a.recruiting_agency, a.company, a.position,
-    to_char(coalesce(c.occurred_at, i.scheduled_at, b.recorded_at), 'YYYY-MM-DD'))
-  FROM public.backups b
-  JOIN public.backup_sources s ON s.backup_id = b.id
-  LEFT JOIN public.application_conversations c ON c.id = s.application_conversation_id
-  LEFT JOIN public.application_interviews i ON i.id = s.interview_id
-  JOIN public.applications a ON a.id = coalesce(c.application_id, i.application_id)
-  WHERE b.id = p_backup_id;
-$$;
-COMMENT ON FUNCTION public.transcript_context(uuid) IS 'Chunk header for a backup.';
-
--- Hybrid search: reciprocal rank fusion (k=60) of cosine top-50 and full-text
--- top-50. Null embedding = keyword only (SQL-only MCP clients).
-CREATE FUNCTION public.search_transcripts(
-  p_query text,
-  p_embedding extensions.vector(768) DEFAULT NULL,
-  p_limit integer DEFAULT 8,
-  p_speaker text DEFAULT NULL,
-  p_backup_ids uuid[] DEFAULT NULL
-)
-RETURNS TABLE (
-  transcript_id uuid,
-  chunk_no integer,
-  start_s numeric,
-  end_s numeric,
-  context_header text,
-  content text,
-  backup_url text,
-  score double precision
-)
-LANGUAGE sql
-STABLE
-SECURITY INVOKER
-SET search_path = ''
-AS $$
-  WITH scope AS (
-    SELECT c.transcript_id, c.chunk_no
-    FROM public.transcript_chunks c
-    JOIN public.backup_transcripts bt ON bt.transcript_id = c.transcript_id
-    WHERE (p_backup_ids IS NULL OR bt.backup_id = ANY (p_backup_ids))
-      AND (p_speaker IS NULL OR EXISTS (
-        SELECT 1 FROM public.transcript_speakers s
-        WHERE s.transcript_id = c.transcript_id
-          AND s.speaker_no = ANY (c.speaker_nos)
-          AND s.label ILIKE '%' || p_speaker || '%'))
-  ), vec AS (
-    SELECT c.transcript_id, c.chunk_no,
-      row_number() OVER (ORDER BY c.embedding OPERATOR(extensions.<=>) p_embedding) AS r
-    FROM public.transcript_chunks c
-    JOIN scope USING (transcript_id, chunk_no)
-    WHERE p_embedding IS NOT NULL
-    ORDER BY c.embedding OPERATOR(extensions.<=>) p_embedding
-    LIMIT 50
-  ), kw AS (
-    SELECT c.transcript_id, c.chunk_no,
-      row_number() OVER (ORDER BY ts_rank_cd(c.fts, q) DESC) AS r
-    FROM public.transcript_chunks c
-    JOIN scope USING (transcript_id, chunk_no),
-      websearch_to_tsquery('english'::regconfig, coalesce(p_query, '')) q
-    WHERE c.fts @@ q
-    ORDER BY ts_rank_cd(c.fts, q) DESC
-    LIMIT 50
-  ), fused AS (
-    SELECT x.transcript_id, x.chunk_no, sum(1.0 / (60 + x.r))::double precision AS score
-    FROM (SELECT * FROM vec UNION ALL SELECT * FROM kw) x
-    GROUP BY x.transcript_id, x.chunk_no
-  )
-  SELECT c.transcript_id, c.chunk_no, c.start_s, c.end_s,
-    t.context_header::text, c.content, b.backup_url, f.score
-  FROM fused f
-  JOIN public.transcript_chunks c ON c.transcript_id = f.transcript_id AND c.chunk_no = f.chunk_no
-  JOIN public.transcripts t ON t.id = c.transcript_id
-  JOIN public.backup_transcripts bt ON bt.transcript_id = c.transcript_id
-  JOIN public.backups b ON b.id = bt.backup_id
-  ORDER BY f.score DESC
-  LIMIT p_limit;
-$$;
-COMMENT ON FUNCTION public.search_transcripts(text, extensions.vector, integer, text, uuid[]) IS
-  'Search call transcripts. Embedding optional (keyword only without).';
-
 -- Labeled turns overlapping [from - pad, to + pad]. Full transcript: (id, 0, 1e6, 0).
 CREATE FUNCTION public.get_transcript_window(
   p_transcript_id uuid,

@@ -2,7 +2,7 @@
 
 > REVIEW ATOMIC.MD FOR OPERATIONAL INSTRUCTIONS
 
-Skill years plus abstract group years, for resume skill rows like `AWS (2) + Other cloud services (4)`. Schema: `supabase/migrations/4_resume.sql` (`skill_groups`, `skill_group_members`, `search_skills`).
+Skill years plus abstract group years, for resume skill rows like `AWS (2) + Other cloud services (4)`. Schema: `supabase/migrations/4_resume.sql` (`skill_groups`), `7_join_tables.sql` (`skill_group_members`), `9_embeddings_and_search.sql` (`search_skills`).
 
 Durations: the named skill uses `precise` (time actually used), the "Other" groups `start_to_end` (first to last use). Override either.
 
