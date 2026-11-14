@@ -105,7 +105,14 @@ export function log(event: string, attrs: Attrs, severity: "INFO" | "WARN" | "ER
 
 // The handler with telemetry around it: every call is logged to Grafana (status, ms, note); a thrown error or a
 // 5xx goes to Sentry as an error, a 4xx is logged only. The handler's result or error is passed through unchanged.
+// Callers whose requests send no telemetry (TELEMETRY_IGNORE_IPS, comma list), e.g. the owner testing.
+const ignoredIps = new Set((Deno.env.get("TELEMETRY_IGNORE_IPS") ?? "").split(",").map((ip) => ip.trim()).filter(Boolean));
+const ignored = (req: Request) =>
+  // x-client-ip: the visitor's IP as forwarded by the homepage's /api/get-jwt proxy.
+  [req.headers.get("x-client-ip") ?? "", ...(req.headers.get("x-forwarded-for") ?? "").split(",")].some((ip) => ignoredIps.has(ip.trim()));
+
 export const withTelemetry = (fn: string, handler: Handler) => async (req: Request) => {
+  if (safely(() => ignored(req))) return handler(req, {});
   const note: Note = {};
   const started = Date.now();
   const done = (status: number, err?: unknown) =>
