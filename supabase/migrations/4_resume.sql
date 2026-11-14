@@ -24,6 +24,7 @@ CREATE TABLE public.employment_titles (
   employer_id uuid NOT NULL REFERENCES public.employer (id) ON DELETE CASCADE,
   name text,
   "desc" text,
+  bullets text[],
   start_day integer,
   start_month integer,
   start_year integer,
@@ -159,6 +160,8 @@ COMMENT ON COLUMN public.employer.private IS
   'True hides the row (and its titles and skill links) from resume_reader. Use for work kept off the resume.';
 COMMENT ON COLUMN public.employment_titles."desc" IS
   'Resume text for this title: role description and employee contributions. Leave null if uncertain.';
+COMMENT ON COLUMN public.employment_titles.bullets IS
+  'Resume bullet points for this title, in display order: one contribution or fact per element. Leave null if uncertain.';
 COMMENT ON COLUMN public.employment_titles.remote IS
   'True if the role was remote, false if onsite; null if unknown.';
 COMMENT ON COLUMN public.employment_titles.private IS
