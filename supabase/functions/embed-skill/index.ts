@@ -5,6 +5,7 @@
 //   skillMode defaults to precise, groupMode to start_to_end (search_skills defaults).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { type Note, withTelemetry } from "../_shared/telemetry.ts";
 
 const session = new Supabase.ai.Session("gte-small");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -67,7 +68,7 @@ async function embedRows(table: string, ids?: string[]) {
 }
 
 // search_skills as the caller, so their role's RLS applies.
-async function handleSearch(req: Request, { query = [], skillMode, groupMode }: EmbedSkillBody) {
+async function handleSearch(req: Request, { query = [], skillMode, groupMode }: EmbedSkillBody, note: Note) {
   const authorization = req.headers.get("Authorization");
   if (!authorization) return json({ error: "Authorization required" }, 401);
   const callerClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -80,34 +81,40 @@ async function handleSearch(req: Request, { query = [], skillMode, groupMode }: 
     ...(skillMode && { p_skill_mode: skillMode }),
     ...(groupMode && { p_group_mode: groupMode }),
   });
+  if (error) note.error = error.message;
   return error ? json({ error: error.message }, 400) : json(data);
 }
 
-async function handleEmbed({ table, id, all }: EmbedSkillBody) {
+async function handleEmbed({ table, id, all }: EmbedSkillBody, note: Note) {
   const embeddedCount = await embedRows(table!, all ? undefined : [id!]);
+  note.embedded = embeddedCount;
   return json({ embedded: embeddedCount });
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withTelemetry("embed-skill", async (req, note) => {
   const origin = req.headers.get("origin");
   if (req.method === "OPTIONS") return withCors(new Response("ok"), origin);
-  return withCors(await handle(req), origin);
-});
+  return withCors(await handle(req, note), origin);
+}));
 
-async function handle(req: Request) {
+async function handle(req: Request, note: Note) {
   try {
     const body: EmbedSkillBody = await req.json();
-    switch (route(body)) {
+    note.route = route(body);
+    note.table = body.table;
+    note.queries = body.query?.length;
+    switch (note.route) {
       case "search":
-        return await handleSearch(req, body);
+        return await handleSearch(req, body, note);
       case "embedOne":
       case "backfill":
-        return await handleEmbed(body);
+        return await handleEmbed(body, note);
       default:
         return json({ error: "expected {query: string[]} or {table, id | all}" }, 400);
     }
   } catch (err) {
     console.error(err);
+    note.error = err instanceof Error ? err.message : JSON.stringify(err);
     return json({ error: "internal error" }, 500);
   }
 }

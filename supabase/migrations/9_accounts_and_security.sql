@@ -193,6 +193,7 @@ REVOKE EXECUTE ON FUNCTION public.search_transcripts(text, extensions.vector, in
 REVOKE EXECUTE ON FUNCTION public.get_transcript_window(uuid, numeric, numeric, numeric)
   FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.alive_trim() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.report_keepalive() FROM PUBLIC, anon, authenticated;
 
 -- New objects created by postgres start with no anon/authenticated access.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public

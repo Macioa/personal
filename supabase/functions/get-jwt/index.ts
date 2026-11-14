@@ -11,6 +11,7 @@
 //   JWT_PROXY_SECRET  requests need header x-proxy-secret = this (sent by the
 //                     homepage's /api/get-jwt Netlify proxy). Unset = not required.
 import { SignJWT } from "npm:jose@5.9.6";
+import { withTelemetry } from "../_shared/telemetry.ts";
 
 const TTL_SECONDS = 60 * 60;
 const ROLES = new Set(["chat", "resume_reader"]);
@@ -45,8 +46,9 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withTelemetry("get-jwt", async (req, note) => {
   const origin = req.headers.get("origin");
+  note.origin = origin;
   const headers = cors(origin);
 
   if (allowedOrigins.length > 0 && (!origin || !allowedOrigins.includes(origin))) {
@@ -73,6 +75,8 @@ Deno.serve(async (req) => {
     return json({ error: "role must be chat or resume_reader" }, 400, headers);
   }
 
+  note.role = role;
+
   if (role === "resume_reader") {
     const key = Deno.env.get("RESUME_READER_KEY");
     const given = req.headers.get("x-token-key") ?? "";
@@ -90,4 +94,4 @@ Deno.serve(async (req) => {
     .sign(new TextEncoder().encode(secret));
 
   return json({ token, expires_at: exp }, 200, headers);
-});
+}));
