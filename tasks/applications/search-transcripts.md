@@ -2,7 +2,7 @@
 
 > REVIEW ATOMIC.MD FOR OPERATIONAL INSTRUCTIONS
 
-Searches call transcripts stored by `call-transcript` step 6. Schema: `supabase/migrations/6_backups_and_transcripts.sql`; search: `9_embeddings_and_search.sql`.
+Searches call transcripts stored by `call-transcript` step 6. Schema: `supabase/migrations/006_backups_and_transcripts.sql`; search: `009_embeddings_and_search.sql`.
 
 1. Semantic + keyword (preferred):
    `python scripts/vector/search.py "<question>" [--limit 8] [--speaker <label part>] [--backup <uuid> ...] [--context]`
