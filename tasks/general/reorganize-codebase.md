@@ -1,4 +1,4 @@
-# reorganize_codebase
+# reorganize-codebase
 
 ## 1. Scan
 1. Scan the codebase, skipping git-ignored directories, for inconsistencies:
@@ -8,6 +8,7 @@
    - Inconsistently located files
    - Duplicated folders or concerns
    - Duplicated tasks or code
+   - Unused directories and files (empty or `.gitkeep`-only, unreferenced anywhere in the repo)
 
 ## 2. Resolve
 1. Present all discrepancies to the user in one table and prompt for their preferred action on each.

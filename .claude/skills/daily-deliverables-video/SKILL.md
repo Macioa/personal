@@ -4,4 +4,4 @@ description: Make a narrated under-5-minute daily deliverables video from one de
 disable-model-invocation: true
 ---
 
-Read `tasks/daily-deliverables-video.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.
+Read `tasks/swe/daily-deliverables-video.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.

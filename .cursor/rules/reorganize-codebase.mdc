@@ -3,4 +3,4 @@ description: Reorganize codebase — scan for folder and file name inconsistenci
 alwaysApply: false
 ---
 
-Read `tasks/general/reorganize_codebase.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.
+Read `tasks/general/reorganize-codebase.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.

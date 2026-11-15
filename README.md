@@ -8,8 +8,7 @@ Run `tasks/swe/setup.md` with Claude, Cursor, or a coding agent.
 
 ## Layout
 
-- `info/` — facts, preferences, context worth reusing across chats
-- `tasks/` — runbooks: `general/` (refactor), `swe/` (setup, recording, PR triage, docs), `db/` (backup, refactor), plus email, jobs, daily summaries; `tasks/resume/injest/` adds resume and personal info
+- `tasks/` — runbooks: `general/` (refactor), `swe/` (setup, recording, PR triage, docs), `db/` (backup, refactor), plus email, jobs, daily summaries; `tasks/resume/ingest/` adds resume and personal info
 - `scripts/` — local scripts (call transcription, video archive)
 - `docs/` — operational notes (atomic routing, installs, logins)
 - `supabase/` — schema and migrations for personal data

@@ -1,4 +1,4 @@
-# configure_for_llm_instruct
+# configure-for-llm-instruct
 
 **Input:** an md skill (target).
 

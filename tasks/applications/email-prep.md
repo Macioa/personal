@@ -7,7 +7,7 @@
 
 > ALWAYS USE DIRECT, CONCISE, AND FORMAL LANGUAGE.
 
-1. Load personal info and scan the `info` folder.
+1. Load personal info.
    - When a draft touches school, degree, or graduation, quote the `Education` row in `personal_info_and_docs`.
 
 2. Check unread mail and folder structure. For each message:

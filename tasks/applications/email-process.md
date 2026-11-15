@@ -5,7 +5,7 @@
 > REVIEW ATOMIC.MD FOR OPERATIONAL INSTRUCTIONS
 > Do not share private or inappropriate information.
 
-1. Load personal info and scan the `info` folder.
+1. Load personal info.
    - Before sending a reply that touches school, degree, or graduation, quote the `Education` row in `personal_info_and_docs`.
 
 2. Scan `temp/mail`. For each md, perform the requested task (send, fill missing text, add attachment, create folder, etc.).
