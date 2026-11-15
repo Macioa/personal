@@ -1,0 +1,6 @@
+---
+description: Configure for LLM instruct — reformat an md skill into LLM instructions, hard-link skill references, register with ADEs, then compress. Use when the user asks to configure an md skill for LLM instruction.
+alwaysApply: false
+---
+
+Read `tasks/mds/configure_for_llm_instruct.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.

@@ -1,6 +1,6 @@
 # Installs
 
-From `skills/` and `tasks/`.
+From `tasks/`.
 
 ## MCPs
 - EasyPlaywrightMCP — https://github.com/Macioa/EasyPlaywrightMCP

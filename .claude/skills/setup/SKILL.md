@@ -4,4 +4,4 @@ description: Install everything in docs/installs.md, then walk the user through 
 disable-model-invocation: true
 ---
 
-Read `skills/setup.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.
+Read `tasks/swe/setup.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.

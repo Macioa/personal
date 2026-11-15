@@ -21,7 +21,7 @@ Reorganize `supabase/migrations/*.sql` (move tables, functions, indexes between 
    Then trim: delete everything but the block from `<new>.sql`, and the block from `<src>.sql`. Repeat for each new file, one at a time.
    Without commits (blocks moved by edit only): history is still findable with `git blame -C -C <new>.sql` and `git diff --cached --color-moved=zebra`.
 4. Fold extraneous ALTERs into their CREATE statements (column types, FK `ON DELETE`, defaults, `CREATE POLICY ... TO` roles).
-5. Update references to renamed files in `tasks/`, `skills/` and SQL comments (`grep -rn "<old file name>"`).
+5. Update references to renamed files in `tasks/` and SQL comments (`grep -rn "<old file name>"`).
 6. Verify against the prior commit: copy `git show HEAD:supabase/migrations/<f>` for each file into `<scratch>/head/`, then compare normalized statement sets (comments stripped, whitespace collapsed, `$$` bodies kept whole, order ignored) of `<scratch>/head` vs `supabase/migrations`. The only differences allowed are the folds from step 4. Report any others.
 7. Verify against live (Supabase MCP `execute_sql`, read-only): for every folded or moved object, check the live state matches the files (column types, `pg_constraint.confdeltype`, `pg_policies.roles`, grants, comments). Report live objects that no file defines.
 8. Show `git status` (renames must show as `R`). Commit only when the user asks.

@@ -1,0 +1,6 @@
+---
+description: Reorganize codebase — scan for folder and file name inconsistencies and prompt the user for the preferred action on each. Use when the user asks to reorganize or check naming consistency.
+alwaysApply: false
+---
+
+Read `tasks/general/reorganize_codebase.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.

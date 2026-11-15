@@ -1,0 +1,6 @@
+---
+description: STAR data review — check resume DB entries (pitches, employment, growth, hardships, projects) for STAR adherence and report good vs not-good with reasoning and suggestions. Use when the user asks to review resume data for STAR.
+alwaysApply: false
+---
+
+Read `tasks/resume/star-data.md` at the repo root and follow it exactly. It is the source of truth; do not paraphrase or skip steps.
