@@ -216,7 +216,10 @@ CREATE TABLE public.projects (
   vibe_and_test boolean NOT NULL DEFAULT false,
   curated_generated_code boolean NOT NULL DEFAULT false,
   hand_written_code boolean NOT NULL DEFAULT false,
-  homepage_url text
+  homepage_url text NOT NULL GENERATED ALWAYS AS (
+    'https://www.ryanwademontgomery.com/?project='
+    || trim(both '-' from regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g'))
+  ) STORED
 );
 
 COMMENT ON TABLE public.projects IS
@@ -229,4 +232,6 @@ COMMENT ON COLUMN public.projects.objective IS
   'Abstract goals for project.';
 COMMENT ON COLUMN public.projects.brag_detail IS
   'Project details to brag about.';
+COMMENT ON COLUMN public.projects.homepage_url IS
+  'Project page on the personal site. Generated from name.';
 

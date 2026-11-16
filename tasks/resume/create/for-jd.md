@@ -14,7 +14,11 @@ Identify ADE skills pertaining to: Web browsing, PDF management, database connec
    - Identify the primary and secondary skills stated in the jd - distinguish hard and soft skills
    - Identify the hard/absolute requirements, and soft/ideal requirements stated in the jd
    - Pair hard skills with abstract equivalents for later use - ex: AWS/Cloud Services, FastAPI/API Frameworks, Python-contextual/OOP or scripting or programming. Get pairs + years from `search_skills(array[...], null, 'precise')` (`--skill-mode precise`) (skill `search-skills`)
-2. Scan database to identify relevant skills and direct education or training
+2. Scan database for relevant skills, education, training, certifications, and clearances. Tables:
+   - Skills: (skill `search-skills`)
+   - Education, training, certifications, clearances: `education_and_training` (all `type`s)
+   - Work experience: `employer`, `employment_titles`
+   - Projects and personal growth: `projects`, `project_skills`, `personal_growth`
 
    Look for, in order:
    1. Explicit hard matches with applicable work experience
@@ -46,7 +50,11 @@ Sections, in order:
    - Row: "<jd skill> (<its yrs>) + Other <abstract equivalent>"; Years column = combined total. Ex: "AWS (2) + Other Cloud Services" | 4.
    - Add "+ Other" only if the DB has a distinct skill of the same kind; otherwise "<jd skill>" | its yrs.
    - Name sub-tools or services in parentheses only when the jd names them and they match db records.
+   - Use the jd's exact term in the row name. When the jd term matched through a skill alias (e.g. OIDC, SAML → OAuth), name it: "OAuth 2.0 / OIDC / SAML (1)".
 4. **Work Experience** - Include all non-private-marked work experience. Each entry: top level summary (required: build from `employer.company_desc` + the summary sentence of `resume_desc`; if neither exists, flag it to the user rather than omit); top 3 most applicable line items; skills subsection with ~3 most JD-applicable skills. Use explicit hard skills when they match directly, otherwise use the abstract equivalent. Ex: if jd requests FastAPI, list FastAPI where used; elsewhere say "web frameworks like FastAPI".
+   - Pull each entry's skills from its `skill_links` rows; never write a skill the entry has no link for. Use the jd's spelling for those skills.
+   - **Key terms go in the entry text, not just the skills line.** For each entry, intersect its linked skills with the jd terms; every match must appear (jd spelling) in that entry's summary or bullets. The skills subsection alone does not count.
+   - Rewrite the summary and bullets around those terms where the DB bullet or linked skill backs it (e.g. "polling to event driven" → "event-driven architecture on AWS"; Cognizant linked to Docker/CI/CD → "deployed via Docker and CI/CD").
 5. **Projects** - Include projects with applicable skills; omit section if none. Each entry: name, brief one-line description, tools, and link. Link = `projects.homepage_url` (website) whenever set; else first `source_url`.
 6. **Education, Training, Certifications** - Always include all non-private-marked `education_and_training` rows, split into three sections by `type`:
    - **Education**: bachelors, masters, phd. List school, years attended, and area of study only; no degree type or completion status unless explicitly asked (see `education-incomplete.mdc`).
@@ -55,6 +63,8 @@ Sections, in order:
    - `other`: flag to the user.
 7. **Disclaimer** - Always end with a horizontal rule and this fine print (small, gray), verbatim:
    > This resume was created from a database of personal resume info selected for this role and manually reviewed before sending. Details of the generation tool are available from [github.com/Macioa/personal](https://github.com/Macioa/personal). Data can be explored from the chat utility at [ryanwademontgomery.com](https://ryanwademontgomery.com).
+
+8. **Key-term check** - Before saving, list every hard skill/term from Phase 1 step 1. Each one the DB backs must appear verbatim (jd spelling) in the summary, skills table, or an entry. Show the user a table: term | where it appears | or "gap (not in DB)". Then a per-entry table: entry | linked jd terms | missing from entry text (must be empty).
 
 ## Phase 3: Cover Letter
 
