@@ -161,6 +161,8 @@ REVOKE EXECUTE ON FUNCTION public.pitch_detail(text[], public.skill_usage_mode)
 REVOKE EXECUTE ON FUNCTION public.get_all_pitches() FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_pitches(text[]) FROM PUBLIC, anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.get_projects() FROM PUBLIC, anon, authenticated;
+-- Projects are public portfolio content (see 008): anon reads them with the publishable key, no JWT.
+GRANT EXECUTE ON FUNCTION public.get_projects() TO anon;
 
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated;
 

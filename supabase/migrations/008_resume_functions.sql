@@ -265,10 +265,13 @@ AS $$ SELECT p.id, dense_rank() OVER (ORDER BY p.priority DESC NULLS LAST) FROM 
 COMMENT ON FUNCTION public.project_sort_keys() IS
   'Rank of each project by priority (higher first, null last). Lets readers sort without seeing priority.';
 
+-- Public portfolio content: anon may call it (012), so the site reads projects without minting a JWT.
+-- SECURITY DEFINER so callers need no table grant; NOT private stands in for the RLS select policy,
+-- and only the listed fields leave (priority, private and id stay hidden).
 CREATE OR REPLACE FUNCTION public.get_projects()
 RETURNS jsonb
 LANGUAGE sql
-STABLE
+STABLE SECURITY DEFINER SET search_path = ''
 AS $$
   SELECT coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
       'name', p.name,
@@ -287,13 +290,17 @@ AS $$
       'tools_used', to_jsonb(nullif(p.tools_used, '{}')),
       'image_urls', to_jsonb(nullif(p.image_urls, '{}')),
       'live_url', to_jsonb(nullif(p.live_url, '{}')),
-      'source_url', to_jsonb(nullif(p.source_url, '{}'))))
+      'source_url', to_jsonb(nullif(p.source_url, '{}')),
+      'vibe_and_test', p.vibe_and_test,
+      'curated_generated_code', p.curated_generated_code,
+      'hand_written_code', p.hand_written_code))
     ORDER BY k.sort_rank,
       p.start_year DESC NULLS LAST, p.start_month DESC NULLS LAST, p.start_day DESC NULLS LAST,
       p.name), '[]'::jsonb)
   FROM public.projects p
-  JOIN public.project_sort_keys() k ON k.id = p.id;
+  JOIN public.project_sort_keys() k ON k.id = p.id
+  WHERE NOT p.private;
 $$;
 
 COMMENT ON FUNCTION public.get_projects() IS
-  'All visible projects as a jsonb array, ordered by name.';
+  'All non-private projects as a jsonb array, by priority then newest start. Public: callable by anon.';
