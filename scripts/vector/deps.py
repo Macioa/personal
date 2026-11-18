@@ -1,6 +1,6 @@
 import importlib.util, subprocess, sys
 
-PKGS = {"fastembed": "fastembed", "psycopg": "psycopg[binary]"}
+PKGS = {"fastembed": "fastembed", "pg8000": "pg8000"}
 
 
 # Pip-install missing Python packages
