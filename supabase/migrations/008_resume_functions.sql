@@ -286,6 +286,7 @@ AS $$
       'objective', to_jsonb(nullif(p.objective, '{}')),
       'result', to_jsonb(nullif(p.result, '{}')),
       'brag_detail', to_jsonb(nullif(p.brag_detail, '{}')),
+      'lessons_learned', to_jsonb(nullif(p.lessons_learned, '{}')),
       'key_features', to_jsonb(nullif(p.key_features, '{}')),
       'tools_used', to_jsonb(nullif(p.tools_used, '{}')),
       'image_urls', to_jsonb(nullif(p.image_urls, '{}')),

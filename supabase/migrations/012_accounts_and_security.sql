@@ -266,7 +266,7 @@ GRANT EXECUTE ON FUNCTION public.get_all_pitches() TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_pitches(text[]) TO resume_reader;
 -- Every column except priority (hidden; sort via project_sort_keys).
 GRANT SELECT (id, name, "desc", problem_to_solve, key_features, tools_used, live_url, source_url, private,
-  objective, result, brag_detail, image_urls, start_day, start_month, start_year, end_day, end_month, end_year,
+  objective, result, brag_detail, lessons_learned, image_urls, start_day, start_month, start_year, end_day, end_month, end_year,
   vibe_and_test, curated_generated_code, hand_written_code, homepage_url)
   ON TABLE public.projects TO resume_reader;
 GRANT SELECT ON TABLE public.project_skills TO resume_reader;
@@ -412,7 +412,7 @@ GRANT SELECT ON TABLE public.pitch_evidence TO chat;
 GRANT SELECT ON TABLE public.pitch_catalog TO chat;
 -- Every column except priority (hidden; sort via project_sort_keys).
 GRANT SELECT (id, name, "desc", problem_to_solve, key_features, tools_used, live_url, source_url, private,
-  objective, result, brag_detail, image_urls, start_day, start_month, start_year, end_day, end_month, end_year,
+  objective, result, brag_detail, lessons_learned, image_urls, start_day, start_month, start_year, end_day, end_month, end_year,
   vibe_and_test, curated_generated_code, hand_written_code, homepage_url)
   ON TABLE public.projects TO chat;
 GRANT SELECT ON TABLE public.project_skills TO chat;

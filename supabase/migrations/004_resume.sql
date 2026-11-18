@@ -206,6 +206,7 @@ CREATE TABLE public.projects (
   objective text[] NOT NULL DEFAULT '{}',
   result text[] NOT NULL DEFAULT '{}',
   brag_detail text[] NOT NULL DEFAULT '{}',
+  lessons_learned text[] NOT NULL DEFAULT '{}',
   key_features text[] NOT NULL DEFAULT '{}',
   tools_used text[] NOT NULL DEFAULT '{}',
   image_urls text[] NOT NULL DEFAULT '{}',
@@ -232,6 +233,8 @@ COMMENT ON COLUMN public.projects.objective IS
   'Abstract goals for project.';
 COMMENT ON COLUMN public.projects.brag_detail IS
   'Project details to brag about.';
+COMMENT ON COLUMN public.projects.lessons_learned IS
+  'Lessons learned from the project.';
 COMMENT ON COLUMN public.projects.homepage_url IS
   'Project page on the personal site. Generated from name.';
 
