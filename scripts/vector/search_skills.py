@@ -46,8 +46,8 @@ def embed_terms(terms):
 
 # search_skills rows as resume_reader
 def search(terms, term_vectors, skill_mode, group_mode):
-    import psycopg, db
-    with psycopg.connect(db.env("RESUME_READER_DB_URL")) as conn:
+    import db
+    with db.pg_connect(db.env("RESUME_READER_DB_URL")) as conn:
         params = (terms, term_vectors, skill_mode, group_mode)
         return [row for (row,) in conn.execute(SEARCH_SQL, params).fetchall()]
 
