@@ -62,7 +62,7 @@ Sections, in order:
    - **Certifications & Clearances**: certificate, clearance
    - `other`: flag to the user.
 7. **Disclaimer** - Always end with a horizontal rule and this fine print (small, gray), verbatim:
-   > This resume was created from a database of personal resume info selected for this role and manually reviewed before sending. Details of the generation tool are available from [github.com/Macioa/personal](https://github.com/Macioa/personal). Data can be explored from the chat utility at [ryanwademontgomery.com](https://ryanwademontgomery.com).
+   > This resume was created from a database of personal resume info selected for this role and manually reviewed before sending. Details of the generation tool are available from [github.com/Macioa/resume-and-application-toolkit](https://github.com/Macioa/resume-and-application-toolkit). Data can be explored from the chat utility at [ryanwademontgomery.com](https://ryanwademontgomery.com).
 
 8. **Key-term check** - Before saving, list every hard skill/term from Phase 1 step 1. Each one the DB backs must appear verbatim (jd spelling) in the summary, skills table, or an entry. Show the user a table: term | where it appears | or "gap (not in DB)". Then a per-entry table: entry | linked jd terms | missing from entry text (must be empty).
 

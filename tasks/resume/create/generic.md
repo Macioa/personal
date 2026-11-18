@@ -54,7 +54,7 @@ Sections, in order:
    - **Certifications & Clearances**: certificate, clearance
    - `other`: flag to the user.
 7. **Disclaimer** - Always end with a horizontal rule and this fine print (small, gray), verbatim:
-   > This resume was created from a database of personal resume info selected for this role and manually reviewed before sending. Details of the generation tool are available from [github.com/Macioa/personal](https://github.com/Macioa/personal). Data can be explored from the chat utility at [ryanwademontgomery.com](https://ryanwademontgomery.com).
+   > This resume was created from a database of personal resume info selected for this role and manually reviewed before sending. Details of the generation tool are available from [github.com/Macioa/resume-and-application-toolkit](https://github.com/Macioa/resume-and-application-toolkit). Data can be explored from the chat utility at [ryanwademontgomery.com](https://ryanwademontgomery.com).
 
 ## Phase 3: Cover Letter
 
