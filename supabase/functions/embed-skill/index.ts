@@ -2,7 +2,7 @@
 // POST {table, id}        -> embed one row (called by trigger; service role writes)
 // POST {table, all: true} -> backfill rows with null embedding
 // POST {query: string[], skillMode?, groupMode?} + Authorization -> search_skills as the caller (RLS applies)
-//   skillMode defaults to precise, groupMode to start_to_end (search_skills defaults).
+//   skillMode/groupMode omitted: each skill's preferred_measure (search_skills defaults).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { type Note, withTelemetry } from "../_shared/telemetry.ts";

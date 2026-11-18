@@ -4,7 +4,7 @@
 
 Skill years plus abstract group years, for resume skill rows like `AWS (2) + Other cloud services (4)`. Schema: `supabase/migrations/004_resume.sql` (`skill_groups`), `007_join_tables.sql` (`skill_group_members`), `009_embeddings_and_search.sql` (`search_skills`).
 
-Durations: the named skill uses `precise` (time actually used), the "Other" groups `start_to_end` (first to last use). Override either.
+Durations: the named skill and each "Other" group use the skill's `skills.preferred_measure` (default `start_to_end`; unmatched terms `start_to_end`); a passed skill/group mode overrides it for all terms.
 
 1. Shell: `python scripts/vector/search_skills.py <skill> [<skill> ...] [--skill-mode <mode>] [--group-mode <mode>] [--json]`. Fuzzy: terms embedded locally (gte-small, same as stored).
 2. SQL (Supabase MCP): `select search_skills(array['<skill>', ...][, null, '<skill_mode>', '<group_mode>'])`.

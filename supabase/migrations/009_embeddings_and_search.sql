@@ -7,12 +7,13 @@
 -- ---------------------------------------------------------------------------
 -- Per term: the skill (exact name, else name part, else alias, else normalized name, else nearest by embedding) and its groups
 -- (or nearest groups if no skill), with years. Group years exclude the skill.
--- Skill and group years both default to precise (merged spans, gaps excluded).
+-- Skill and group years use the matched skill's preferred_measure unless p_skill_mode / p_group_mode
+-- is given (then that mode for all terms). No matched skill: start_to_end.
 CREATE OR REPLACE FUNCTION public.search_skills(
   p_skills text[],
   p_embeddings extensions.vector(384)[] DEFAULT NULL,
-  p_skill_mode public.skill_usage_mode DEFAULT 'precise',
-  p_group_mode public.skill_usage_mode DEFAULT 'precise',
+  p_skill_mode public.skill_usage_mode DEFAULT NULL,
+  p_group_mode public.skill_usage_mode DEFAULT NULL,
   p_group_limit integer DEFAULT 2,
   p_min_sim double precision DEFAULT 0.9,
   p_group_min_sim double precision DEFAULT 0.815
@@ -68,7 +69,10 @@ AS $$
     SELECT c.term_no, c.name, c.dist, gs.yrs, gs.examples
     FROM candidate_groups c
     JOIN matched mt ON mt.term_no = c.term_no
-    CROSS JOIN LATERAL public.skill_group_summary(c.group_id, mt.skill_id, p_group_mode) gs
+    CROSS JOIN LATERAL public.skill_group_summary(c.group_id, mt.skill_id,
+      coalesce(p_group_mode,
+               (SELECT s.preferred_measure FROM public.skills s WHERE s.id = mt.skill_id),
+               'start_to_end')) gs
     WHERE gs.yrs IS NOT NULL
   ),
   results AS (
@@ -78,7 +82,7 @@ AS $$
        FROM group_stats g WHERE g.term_no = mt.term_no) AS groups
     FROM matched mt
     LEFT JOIN public.skills s ON s.id = mt.skill_id
-    LEFT JOIN LATERAL public.skill_usage(ARRAY[mt.skill_id], p_skill_mode) u ON mt.skill_id IS NOT NULL
+    LEFT JOIN LATERAL public.skill_usage(ARRAY[mt.skill_id], coalesce(p_skill_mode, s.preferred_measure)) u ON mt.skill_id IS NOT NULL
   )
   -- Label from groups (single ordering): "AWS (2) + Other cloud services (GCP, total 4)".
   -- No matching skill: the search term with 0 years, e.g. "Azure (0) + Other cloud services (...)".

@@ -53,7 +53,8 @@ CREATE TABLE public.skills (
   private boolean NOT NULL DEFAULT false,
   priority integer,
   embedding extensions.vector(384),
-  aliases text[] NOT NULL DEFAULT '{}'
+  aliases text[] NOT NULL DEFAULT '{}',
+  preferred_measure public.skill_usage_mode NOT NULL DEFAULT 'start_to_end'
 );
 
 CREATE TABLE public.skill_groups (
@@ -140,6 +141,8 @@ COMMENT ON COLUMN public.skills.type IS
   'Kind of skill (hard/soft). For display grouping use skill_group_members.';
 COMMENT ON COLUMN public.skills.aliases IS
   'Other names for this skill (e.g. Node.js for Node). Matched by search_skills only; not displayed.';
+COMMENT ON COLUMN public.skills.preferred_measure IS
+  'Years measure search_skills uses for this skill and its groups unless the caller passes a mode.';
 COMMENT ON COLUMN public.skills.priority IS
   'User defined rankings for skill significance.';
 COMMENT ON COLUMN public.skills.embedding IS

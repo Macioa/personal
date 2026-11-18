@@ -1,6 +1,6 @@
 """Skill years with abstract groups, e.g.
 "AWS (4) + Other cloud services (Google Cloud, Cloud Functions, total 10)". Unknown skill: "Azure (0) + ...".
-Skill years default to precise, group years to start_to_end.
+Years use each skill's preferred_measure unless --skill-mode/--group-mode is given.
 
 Usage: python search_skills.py AWS "fast api" [--skill-mode precise|start_to_end]
        [--group-mode precise|start_to_end] [--json]
@@ -21,8 +21,8 @@ SEARCH_SQL = ("SELECT public.search_skills(%s, %s::extensions.vector(384)[],"
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("skills", nargs="+")
-    p.add_argument("--skill-mode", choices=MODES, default="precise", help="years for the named skill")
-    p.add_argument("--group-mode", choices=MODES, default="start_to_end", help="years for Other groups")
+    p.add_argument("--skill-mode", choices=MODES, default=None, help="years for every named skill (default: skill's preferred_measure)")
+    p.add_argument("--group-mode", choices=MODES, default=None, help="years for every Other group (default: skill's preferred_measure)")
     p.add_argument("--json", action="store_true", help="print full rows")
     return p.parse_args()
 
