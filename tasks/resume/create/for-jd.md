@@ -13,7 +13,7 @@ Identify ADE skills pertaining to: Web browsing, PDF management, database connec
 1. Scan to comprehend jd
    - Identify the primary and secondary skills stated in the jd - distinguish hard and soft skills
    - Identify the hard/absolute requirements, and soft/ideal requirements stated in the jd
-   - Pair hard skills with abstract equivalents for later use - ex: AWS/Cloud Services, FastAPI/API Frameworks, Python-contextual/OOP or scripting or programming. Get pairs + years from `search_skills(array[...], null, 'precise')` (`--skill-mode precise`) (skill `search-skills`)
+   - Pair hard skills with abstract equivalents for later use - ex: AWS/Cloud Services, FastAPI/API Frameworks, Python-contextual/OOP or scripting or programming. Get pairs + years from `search_skills(array[...], null, 'precise', 'precise')` (`--skill-mode precise --group-mode precise`); row total from `skill_usage(..., 'start_to_end')` (skill `search-skills`)
 2. Scan database for relevant skills, education, training, certifications, and clearances. Tables:
    - Skills: (skill `search-skills`)
    - Education, training, certifications, clearances: `education_and_training` (all `type`s)
@@ -47,7 +47,7 @@ Sections, in order:
 1. **Contact info** - Check database to get appropriate contact information. Include name, city, email, personal website, LinkedIn, GitHub if available.
 2. **Summary** - Combine user-specified pitches and a career overview into a coherent 1-3 paragraph summary tailored to the jd. Include direct years of experience for most applicable skills.
 3. **Skills section** - Pick top 10 skill matches and present them in a clean table format with years of experience or (1-5) ranking depending on what best sells the skill matches.
-   - Row: "<jd skill> (<its yrs>) + Other <abstract equivalent>"; Years column = combined total. Ex: "AWS (2) + Other Cloud Services" | 4.
+   - Row: "<jd skill> (<precise yrs>) + Other <abstract equivalent> (<precise yrs>)"; Years column = start_to_end total of skill + group. Ex: "AWS (5) + Other cloud services (6)" | 11.
    - Add "+ Other" only if the DB has a distinct skill of the same kind; otherwise "<jd skill>" | its yrs.
    - Name sub-tools or services in parentheses only when the jd names them and they match db records.
    - Use the jd's exact term in the row name. When the jd term matched through a skill alias (e.g. OIDC, SAML → OAuth), name it: "OAuth 2.0 / OIDC / SAML (1)".
