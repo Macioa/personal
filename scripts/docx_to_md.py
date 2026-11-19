@@ -1,12 +1,9 @@
-"""Convert a .docx to Markdown. Usage: python scripts/docx_to_md.py <file.docx> [out_dir]
-Default out_dir: <repo>/temp."""
-import sys
+"""Convert a .docx to Markdown.
+Usage: python scripts/docx_to_md.py --input-abs-path <abs .docx> --output-abs-path <abs .md>"""
+import argparse
 from pathlib import Path
 
 from docx import Document
-
-REPO = Path(__file__).resolve().parent.parent
-
 
 def runs_md(p):
     out = []
@@ -75,12 +72,14 @@ def convert(src: Path) -> str:
 
 
 def main():
-    if len(sys.argv) < 2:
-        sys.exit(__doc__)
-    src = Path(sys.argv[1])
-    out_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else REPO / "temp"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    dst = out_dir / (src.stem + ".md")
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--input-abs-path", required=True)
+    ap.add_argument("--output-abs-path", required=True)
+    a = ap.parse_args()
+    src, dst = Path(a.input_abs_path), Path(a.output_abs_path)
+    if not (src.is_absolute() and dst.is_absolute()):
+        ap.error("paths must be absolute")
+    dst.parent.mkdir(parents=True, exist_ok=True)
     dst.write_text(convert(src), encoding="utf-8")
     print(dst)
 

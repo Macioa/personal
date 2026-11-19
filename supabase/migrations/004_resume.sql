@@ -107,6 +107,17 @@ CREATE TABLE public.personal_growth (
   private boolean NOT NULL DEFAULT false
 );
 
+CREATE TABLE public.public_contact_info (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  title text[] NOT NULL DEFAULT '{}',
+  location text[] NOT NULL DEFAULT '{}',
+  phone text[] NOT NULL DEFAULT '{}',
+  email text[] NOT NULL DEFAULT '{}',
+  links text[] NOT NULL DEFAULT '{}',
+  other_content text[] NOT NULL DEFAULT '{}'
+);
+
 COMMENT ON COLUMN public.employer.company_desc IS
   'Description of the company only: industry and purpose, from public info on the company site. Nothing about the position or the employee.';
 COMMENT ON COLUMN public.employer.resume_desc IS
@@ -150,8 +161,7 @@ COMMENT ON COLUMN public.skills.embedding IS
 COMMENT ON TABLE public.skill_groups IS
   'Abstract skill buckets for resume display, e.g. "cloud services". Reuse an existing group before adding one.';
 COMMENT ON COLUMN public.skill_groups.embedding IS
-  'gte-small (384) of name + desc.';
-COMMENT ON COLUMN public.skills.private IS
+  'gte-small (384) of name + desc.';COMMENT ON COLUMN public.skills.private IS
   'True hides the skill (and its links) from resume_reader.';
 
 CREATE TABLE public.hardships (

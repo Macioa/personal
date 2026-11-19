@@ -41,6 +41,7 @@ ALTER TABLE public.skill_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_group_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.education_and_training ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.public_contact_info ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hardships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_employer_portals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.job_references ENABLE ROW LEVEL SECURITY;
@@ -86,6 +87,7 @@ ALTER TABLE public.skill_groups FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_group_members FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.education_and_training FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.public_contact_info FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.hardships FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_employer_portals FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.job_references FORCE ROW LEVEL SECURITY;
@@ -131,6 +133,7 @@ REVOKE ALL ON TABLE public.skill_groups FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skill_group_members FROM anon, authenticated;
 REVOKE ALL ON TABLE public.education_and_training FROM anon, authenticated;
 REVOKE ALL ON TABLE public.personal_growth FROM anon, authenticated;
+REVOKE ALL ON TABLE public.public_contact_info FROM anon, authenticated;
 REVOKE ALL ON TABLE public.hardships FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employer_employer_portals FROM anon, authenticated;
 REVOKE ALL ON TABLE public.job_references FROM anon, authenticated;
@@ -243,6 +246,7 @@ GRANT SELECT ON TABLE public.employer TO resume_reader;
 GRANT SELECT ON TABLE public.employment_titles TO resume_reader;
 GRANT SELECT ON TABLE public.education_and_training TO resume_reader;
 GRANT SELECT ON TABLE public.personal_growth TO resume_reader;
+GRANT SELECT ON TABLE public.public_contact_info TO resume_reader;
 GRANT SELECT ON TABLE public.hardships TO resume_reader;
 -- Every column except priority (hidden; sort via skill_sort_keys).
 GRANT SELECT (id, name, "desc", type, private, embedding, aliases, preferred_measure) ON TABLE public.skills TO resume_reader;
@@ -297,6 +301,10 @@ CREATE POLICY resume_reader_select ON public.education_and_training
 CREATE POLICY resume_reader_select ON public.personal_growth
   FOR SELECT TO resume_reader, chat
   USING (NOT private);
+
+CREATE POLICY resume_reader_select ON public.public_contact_info
+  FOR SELECT TO resume_reader
+  USING (true);
 
 CREATE POLICY resume_reader_select ON public.hardships
   FOR SELECT TO resume_reader, chat
