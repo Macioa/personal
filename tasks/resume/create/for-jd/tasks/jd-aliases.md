@@ -5,3 +5,5 @@
 
 | Skill | Aliases / alternative names | Associated skills |
 |---|---|---|
+
+3. For each abstract skill, list the 2-3 most common named tools first in `Associated skills`.

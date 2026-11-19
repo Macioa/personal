@@ -20,4 +20,6 @@ One block per category; `**Name**` = `Job skills`, `Soft skills`, `Requirements`
 3. Job skills: mark each item `skillname - explicit` or `skillname - abstract`.
    - Explicit: specific tool (React, Python, AWS).
    - Abstract: everything else (front end framework, cloud services, programming languages).
+   - One item per named tool: split "X or Y" / "X, Y, or Z" into separate explicit items (same tier).
+   - Abstract names: 2-4 word canonical noun phrase, no parentheticals or examples (e.g. `AI coding assistants`, not `AI-assisted development tools (code generation, ...)`).
 4. Soft skills and other requirements: plain line, no tag.
