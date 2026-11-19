@@ -305,3 +305,100 @@ $$;
 
 COMMENT ON FUNCTION public.get_projects() IS
   'All non-private projects as a jsonb array, by priority then newest start. Public: callable by anon.';
+
+CREATE OR REPLACE FUNCTION public.jsonb_compact(j jsonb)
+RETURNS jsonb
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE jsonb_typeof(j)
+    WHEN 'object' THEN (SELECT nullif(coalesce(jsonb_object_agg(k, c), '{}'), '{}')
+      FROM (SELECT k, public.jsonb_compact(v) c FROM jsonb_each(j) e(k, v)) x WHERE c IS NOT NULL)
+    WHEN 'array' THEN (SELECT nullif(coalesce(jsonb_agg(c ORDER BY n), '[]'), '[]')
+      FROM (SELECT n, public.jsonb_compact(v) c FROM jsonb_array_elements(j) WITH ORDINALITY a(v, n)) x WHERE c IS NOT NULL)
+    WHEN 'null' THEN NULL
+    ELSE j END
+$$;
+
+CREATE OR REPLACE FUNCTION public.resume_dates(sm integer, sy integer, em integer, ey integer)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  WITH v AS (SELECT CASE WHEN sy IS NOT NULL THEN concat_ws('/', sm, sy) END s,
+                    CASE WHEN ey IS NOT NULL THEN concat_ws('/', em, ey) END e)
+  SELECT CASE WHEN s IS NULL THEN e
+              WHEN e IS NULL THEN s || '-present'
+              WHEN s = e THEN s
+              ELSE s || '-' || e END FROM v
+$$;
+
+CREATE OR REPLACE VIEW public.resume WITH (security_invoker = true) AS
+ WITH sk AS (
+         SELECT s.id,
+            s.name,
+            ss.sort_rank
+           FROM skills s
+             LEFT JOIN skill_sort_keys() ss(id, sort_rank) ON ss.id = s.id
+        ), edu AS (
+         SELECT d.type,
+            jsonb_agg(
+                CASE
+                    WHEN d.type = ANY (ARRAY['bachelors'::education_type, 'masters'::education_type, 'phd'::education_type]) THEN jsonb_build_object('name', d.name, 'website', d.website, 'desc_short', d.desc_short, 'dates', resume_dates(d.start_month, d.start_year, d.end_month, d.end_year))
+                    ELSE jsonb_build_object('name', d.name, 'website', d.website, 'desc_short', d.desc_short, 'dates', resume_dates(d.start_month, d.start_year, d.end_month, d.end_year), 'skills', ( SELECT jsonb_agg(sk.name ORDER BY sk.sort_rank) AS jsonb_agg
+                       FROM skill_links l
+                         JOIN sk ON sk.id = l.skill_id
+                      WHERE l.education_and_training_id = d.id))
+                END ORDER BY d.end_year DESC, d.start_year DESC) AS rows
+           FROM education_and_training d
+          WHERE d.type <> 'high_school'::education_type
+          GROUP BY d.type
+        )
+ SELECT jsonb_compact(( SELECT jsonb_agg(to_jsonb(c.*) ORDER BY c.name) AS jsonb_agg
+           FROM public_contact_info c)) AS intro,
+    jsonb_compact(( SELECT jsonb_agg(jsonb_build_object('slug', p.slug, 'type', p.type, 'title', p.title, 'use_when', p.use_when, 'material', p.material, 'keywords', p.keywords, 'evidence', jsonb_build_object('employers', ( SELECT jsonb_agg(DISTINCT e.name) AS jsonb_agg
+                   FROM pitch_evidence pe
+                     LEFT JOIN employment_titles t ON t.id = pe.employment_title_id
+                     JOIN employer e ON e.id = COALESCE(pe.employer_id, t.employer_id)
+                  WHERE pe.pitch_id = p.id), 'education_and_training', ( SELECT jsonb_agg(DISTINCT d.name) AS jsonb_agg
+                   FROM pitch_evidence pe
+                     JOIN education_and_training d ON d.id = pe.education_and_training_id
+                  WHERE pe.pitch_id = p.id))) ORDER BY p.slug) AS jsonb_agg
+           FROM pitches p)) AS pitches,
+    jsonb_compact(( SELECT jsonb_agg(jsonb_build_object('name', e.name, 'website', e.website, 'resume_desc', e.resume_desc, 'last_title', e.end_title, 'dates', resume_dates(e.start_month, e.start_year, e.end_month, e.end_year), 'location', ( SELECT t.location
+                   FROM employment_titles t
+                  WHERE t.employer_id = e.id
+                  ORDER BY t.start_year DESC NULLS LAST, t.start_month DESC NULLS LAST
+                 LIMIT 1), 'remote', ( SELECT t.remote
+                   FROM employment_titles t
+                  WHERE t.employer_id = e.id
+                  ORDER BY t.start_year DESC NULLS LAST, t.start_month DESC NULLS LAST
+                 LIMIT 1), 'bullets', ( SELECT jsonb_agg(b.v ORDER BY t.start_year DESC NULLS LAST, t.start_month DESC NULLS LAST, b.n) AS jsonb_agg
+                   FROM employment_titles t,
+                    LATERAL unnest(t.bullets) WITH ORDINALITY b(v, n)
+                  WHERE t.employer_id = e.id), 'skills', ( SELECT jsonb_agg(x.name ORDER BY x.sort_rank) AS jsonb_agg
+                   FROM ( SELECT DISTINCT sk.name,
+                            sk.sort_rank
+                           FROM skill_links l
+                             JOIN sk ON sk.id = l.skill_id
+                             LEFT JOIN employment_titles t ON t.id = l.employment_title_id
+                          WHERE l.employer_id = e.id OR t.employer_id = e.id) x)) ORDER BY e.end_year DESC, e.end_month DESC, e.start_year DESC) AS jsonb_agg
+           FROM employer e)) AS employment,
+    jsonb_compact(( SELECT jsonb_object_agg(edu.type, edu.rows ORDER BY edu.type) AS jsonb_object_agg
+           FROM edu)) AS education,
+    jsonb_compact(( SELECT jsonb_agg(jsonb_build_object('name', pr.name, 'desc', pr."desc", 'homepage_url', pr.homepage_url, 'tools_used', ( SELECT jsonb_agg(tu.v ORDER BY tu.n) AS jsonb_agg
+                   FROM unnest(pr.tools_used) WITH ORDINALITY tu(v, n)
+                  WHERE NOT (EXISTS ( SELECT 1
+                           FROM project_skills ps2
+                             JOIN sk sk2 ON sk2.id = ps2.skill_id
+                          WHERE ps2.project_id = pr.id AND lower(sk2.name) = lower(tu.v)))), 'dates', resume_dates(pr.start_month, pr.start_year, pr.end_month, pr.end_year), 'skills', ( SELECT jsonb_agg(sk.name ORDER BY sk.sort_rank) AS jsonb_agg
+                   FROM project_skills ps
+                     JOIN sk ON sk.id = ps.skill_id
+                  WHERE ps.project_id = pr.id)) ORDER BY k.sort_rank) AS jsonb_agg
+           FROM projects pr
+             LEFT JOIN project_sort_keys() k(id, sort_rank) ON k.id = pr.id)) AS projects,
+    jsonb_compact(( SELECT jsonb_agg(jsonb_build_object('name', g.name, 'desc_short', g.desc_short, 'url', g.url, 'dates', resume_dates(g.start_month, g.start_year, g.end_month, g.end_year), 'skills', ( SELECT jsonb_agg(sk.name ORDER BY sk.sort_rank) AS jsonb_agg
+                   FROM skill_links l
+                     JOIN sk ON sk.id = l.skill_id
+                  WHERE l.personal_growth_id = g.id)) ORDER BY g.end_year DESC, g.start_year DESC) AS jsonb_agg
+           FROM personal_growth g)) AS personal_growth;

@@ -34,3 +34,9 @@ After each step completes, prepend its token usage (from the Agent result's usag
 - `tasks/jd-select-employment.md` → `selected_employment.md`
 - `tasks/jd-select-projects.md` → `selected_projects.md`
 - `tasks/jd-select-pitches.md` → `selected_pitches.md`
+
+**Group 7**
+- `tasks/jd-summary.md` → `resume_summary.md`
+
+**Group 8**
+- (direct) `tasks/jd-final.md` → `final.md`

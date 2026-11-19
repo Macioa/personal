@@ -279,6 +279,8 @@ GRANT SELECT ON TABLE public.pitch_projects TO resume_reader;
 GRANT SELECT ON TABLE public.pitch_growth TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_projects() TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.skill_sort_keys(), public.project_sort_keys() TO resume_reader;
+GRANT EXECUTE ON FUNCTION public.jsonb_compact(jsonb), public.resume_dates(integer, integer, integer, integer) TO resume_reader;
+GRANT SELECT ON TABLE public.resume TO resume_reader;
 GRANT SELECT ON TABLE public.personal_info_and_docs TO resume_reader;
 -- GraphQL only via graphql_read (read-only); no graphql_public endpoint.
 GRANT USAGE ON SCHEMA graphql TO resume_reader;

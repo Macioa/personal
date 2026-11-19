@@ -114,9 +114,12 @@ CREATE TABLE public.public_contact_info (
   location text[] NOT NULL DEFAULT '{}',
   phone text[] NOT NULL DEFAULT '{}',
   email text[] NOT NULL DEFAULT '{}',
-  links text[] NOT NULL DEFAULT '{}',
+  links jsonb NOT NULL DEFAULT '[]'::jsonb,
   other_content text[] NOT NULL DEFAULT '{}'
 );
+
+COMMENT ON COLUMN public.public_contact_info.links IS
+  'Array of {name, url}. name is the display title (e.g. website, linkedin, github, calendly).';
 
 COMMENT ON COLUMN public.employer.company_desc IS
   'Description of the company only: industry and purpose, from public info on the company site. Nothing about the position or the employee.';
