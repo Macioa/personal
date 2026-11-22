@@ -18,6 +18,14 @@ def link(text, url):
         return text
     return f"[{text}]({url if '://' in url else 'https://' + url})"
 
+def tel_link(raw):
+    d = re.sub(r"\D", "", raw)
+    if len(d) == 11 and d[0] == "1":
+        d = d[1:]
+    if len(d) != 10:
+        sys.exit(f"Unsupported phone number: {raw}")
+    return f"[+1 ({d[:3]}) {d[3:6]}-{d[6:]}](tel:+1{d})"
+
 def load(p):
     return json.loads(body(p))
 
@@ -28,7 +36,8 @@ def main():
     intro = load(d / "resume-view-intro.md")[0]
     out = [f"# {intro['name']}", ""]
     emails = [f"[Email](mailto:{e})" for e in intro.get("email", [])]
-    out.append(" - ".join(intro.get("location", []) + intro.get("phone", []) + emails))
+    phones = [tel_link(p) for p in intro.get("phone", [])]
+    out.append(" - ".join(intro.get("location", []) + phones + emails))
     out += [""]
     out.append(" - ".join(f"[{l['name']}]({l['url']})" for l in intro.get("links", [])))
     out += ["", "## Summary", "", body(d / "resume_summary.md"), "", "## Skills", ""]
@@ -54,7 +63,8 @@ def main():
     if projects:
         out += ["", "## Projects"]
         for p in projects:
-            out += ["", f"{link(p['name'], p.get('homepage_url'))} - {p['desc']}"]
+            dates = f" ({p['dates']})" if p.get("dates") else ""
+            out += ["", f"{link(p['name'], p.get('homepage_url'))}{dates} - {p['desc']}"]
             if p.get("tools_used"):
                 out += ["", ", ".join(p["tools_used"])]
     ed = load(d / "resume-view-education.md")

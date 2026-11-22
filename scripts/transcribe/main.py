@@ -1,3 +1,4 @@
+# BEFORE RUNNING: ask the user whether to use large-v3 (most accurate, slower). Wording always matters.
 """Meeting recording -> speaker-labeled transcript + compressed archive video.
 
 Usage: python main.py <recording> [num_speakers=2, -1=auto] [model=per format: small, amr large-v3-turbo] [out_dir=temp/transcripts]

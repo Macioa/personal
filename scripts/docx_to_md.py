@@ -25,7 +25,7 @@ def para_md(p):
     text = runs_md(p)
     if not text:
         return ""
-    style = (p.style.name or "").lower()
+    style = ((p.style.name if p.style else "") or "").lower()
     if style.startswith("heading"):
         lvl = "".join(c for c in style if c.isdigit()) or "1"
         return "#" * int(lvl) + " " + p.text.strip()

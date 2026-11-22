@@ -38,6 +38,7 @@ ALTER TABLE public.employment_titles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_portals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.alternate_skills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_group_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.education_and_training ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth ENABLE ROW LEVEL SECURITY;
@@ -84,6 +85,7 @@ ALTER TABLE public.employment_titles FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_portals FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.skills FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_groups FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.alternate_skills FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_group_members FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.education_and_training FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.personal_growth FORCE ROW LEVEL SECURITY;
@@ -130,6 +132,7 @@ REVOKE ALL ON TABLE public.employment_titles FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employer_portals FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skills FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skill_groups FROM anon, authenticated;
+REVOKE ALL ON TABLE public.alternate_skills FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skill_group_members FROM anon, authenticated;
 REVOKE ALL ON TABLE public.education_and_training FROM anon, authenticated;
 REVOKE ALL ON TABLE public.personal_growth FROM anon, authenticated;
@@ -255,6 +258,7 @@ GRANT EXECUTE ON FUNCTION public.get_skill(text, public.skill_usage_mode) TO res
 GRANT EXECUTE ON FUNCTION public.get_skills(text[], public.skill_usage_mode) TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.get_all_skills() TO resume_reader;
 GRANT SELECT ON TABLE public.skill_groups TO resume_reader;
+GRANT SELECT ON TABLE public.alternate_skills TO resume_reader;
 GRANT SELECT ON TABLE public.skill_group_members TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.skill_usage(uuid[], public.skill_usage_mode) TO resume_reader;
 GRANT EXECUTE ON FUNCTION public.skill_group_summary(uuid, uuid, public.skill_usage_mode) TO resume_reader;
@@ -318,6 +322,10 @@ CREATE POLICY resume_reader_select ON public.skills
 
 CREATE POLICY resume_reader_select ON public.skill_groups
   FOR SELECT TO resume_reader, chat
+  USING (true);
+
+CREATE POLICY resume_reader_select ON public.alternate_skills
+  FOR SELECT TO resume_reader
   USING (true);
 
 CREATE POLICY resume_reader_select ON public.skill_group_members

@@ -5,7 +5,7 @@ from common import args, read, read_json, prompt, run, write, dump
 
 repo, role, d = args()
 pitches = read_json(d, "resume-view-pitches.md")
-lo, hi = 0, min(3, len(pitches))
+lo, hi = min(1, len(pitches)), min(3, len(pitches))
 
 
 class Reply(BaseModel):
@@ -20,7 +20,7 @@ def check(r):
 
 text = prompt("jd-select-pitches.md", repo, role,
               {"original_jd.md": read(d, "original_jd.md"), "resume-view-pitches.md": dump(pitches)},
-              f"return `indexes`: 2-{hi} 0-based positions in resume-view-pitches.md, best first; fewer (or an empty list) if not enough pitches fit the JD. Pitches are copied verbatim automatically.")
+              f"return `indexes`: 2-{hi} 0-based positions in resume-view-pitches.md, best first; at least 1. If none fit the JD, pick the pitch(es) whose `use_when` says to use them when no other pitch fits. Pitches are copied verbatim automatically.")
 if pitches:
     r, tokens = run(text, Reply, check)
     write(d, "selected_pitches.md", tokens, dump([pitches[i] for i in r.indexes]))

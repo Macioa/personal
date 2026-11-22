@@ -74,7 +74,8 @@ CREATE TYPE public.pitch_type AS ENUM (
   'delivery',
   'domain',
   'collaboration',
-  'other'
+  'other',
+  'problem_solving'
 );
 
 CREATE TYPE public.backup_type AS ENUM (

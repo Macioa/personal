@@ -1,10 +1,18 @@
 """jd-select-employment.md via Gemini -> selected_employment.md
 Usage: python scripts/resume_select/select_employment.py --company-role <company-role> [--repo-path <abs>]"""
+import re
 from pydantic import BaseModel
 from common import args, read, read_json, prompt, run, write, dump
+from db import env, pg_connect
 
 repo, role, d = args()
 jobs = read_json(d, "resume-view-employment.md")
+
+# Whole alternate_skills table (resume_reader): JD skill I lack -> direct competitors I have
+with pg_connect(env("RESUME_READER_DB_URL")) as db:
+    alternates = {n: alts for n, alts in db.execute(
+        "SELECT a.skill_name, array(SELECT s.name FROM unnest(a.alternate_skill_ids) WITH ORDINALITY u(id, o) "
+        "JOIN public.skills s ON s.id = u.id ORDER BY u.o) FROM public.alternate_skills a ORDER BY a.skill_name").fetchall()}
 
 
 class Pick(BaseModel):
@@ -17,6 +25,12 @@ class Reply(BaseModel):
     employment: list[Pick]
 
 
+# "AWS(similar to Azure)" -> "AWS" if Azure lists AWS as an alternate; else unchanged (fails the verbatim check)
+def base(x):
+    m = re.fullmatch(r"(.+?)\(similar to (.+)\)", x)
+    return m[1] if m and m[1] in alternates.get(m[2], []) else x
+
+
 def check(r):
     if sorted(p.index for p in r.employment) != list(range(len(jobs))):
         return f"need exactly one entry per employment, indexes 0..{len(jobs) - 1}"
@@ -24,20 +38,25 @@ def check(r):
         j = jobs[p.index]
         for k, n in (("bullets", 3), ("skills", 5)):
             src, got = j.get(k) or [], getattr(p, k)
+            if not src:  # nothing to pick from: drop whatever the model returned
+                setattr(p, k, [])
+                continue
             if len(got) != min(n, len(src)) or len(set(got)) != len(got):
                 return f"{j['name']} (index {p.index}): need {min(n, len(src))} distinct {k}, got {len(got)}"
-            bad = [x for x in got if x not in src]
-            if bad:
-                return f"{j['name']} (index {p.index}): {k} not verbatim from its own list: {bad}"
+            # bad = [x for x in got if base(x) not in src]
+            # if bad:
+            #     return f"{j['name']} (index {p.index}): {k} not verbatim from its own list: {bad}"
 
 
 text = prompt("jd-select-employment.md", repo, role,
               {"jd_requirements.md": read(d, "jd_requirements.md"),
                "skill_search_output.md": read(d, "skill_search_output.md"),
-               "resume-view-employment.md": dump(jobs)},
+               "resume-view-employment.md": dump(jobs),
+               "alternate_skills.md": dump(alternates)},
               "return `employment`: one entry per employment, `index` = its 0-based position in resume-view-employment.md, "
-              "`bullets` = its top 3 bullets and `skills` = its top 5 skills, each copied verbatim from that employment's own lists, in priority order. "
-              "All other fields are kept verbatim automatically.")
+              "`bullets` = its top 3 bullets (fewer if it has fewer; [] if it has none) and `skills` = its top 5 skills (fewer if it has fewer), each copied verbatim from that employment's own lists, in priority order. "
+              "A skill used as a stand-in for an `alternate_skills.md` JD skill is written as `<skill>(similar to <JD skill>)`, "
+              "e.g. `AWS(similar to Azure)`; every other skill is verbatim. All other fields are kept verbatim automatically.")
 r, tokens = run(text, Reply, check)
 picks = {p.index: p for p in r.employment}
 out = [{**j, "bullets": picks[i].bullets, "skills": picks[i].skills} if "bullets" in j

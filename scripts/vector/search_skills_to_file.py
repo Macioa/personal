@@ -23,5 +23,10 @@ out.parent.mkdir(parents=True, exist_ok=True)
 lines = result.stdout.splitlines()
 if len(lines) != len(args.skills):
     sys.exit(f"expected {len(args.skills)} result lines, got {len(lines)}")
-out.write_text("".join(f"{s} -> {l}\n" for s, l in zip(args.skills, lines)), encoding="utf-8")
+# One row per DB result: JD skills that normalize to the same result share a row ("JavaScript / TypeScript -> ...")
+merged = {}
+for s, l in zip(args.skills, lines):
+    if s not in merged.setdefault(l, []):
+        merged[l].append(s)
+out.write_text("".join(f"{' / '.join(ss)} -> {l}\n" for l, ss in merged.items()), encoding="utf-8")
 print(out)

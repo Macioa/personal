@@ -87,6 +87,16 @@ CREATE TABLE public.pitch_projects (
   PRIMARY KEY (pitch_id, project_id)
 );
 
+CREATE TABLE public.alternate_skills (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  skill_name text NOT NULL UNIQUE,
+  alternate_skill_ids uuid[] NOT NULL
+);
+
+COMMENT ON TABLE public.alternate_skills IS
+  'Skills I lack mapped to direct competitors I have (skills.id). Used by resume selection.';
+COMMENT ON COLUMN public.alternate_skills.skill_name IS 'Skill I do not have, as named in JDs.';
+COMMENT ON COLUMN public.alternate_skills.alternate_skill_ids IS 'skills.id of direct competitors I have.';
 COMMENT ON TABLE public.skill_group_members IS
   'Join: skills to groups (many-to-many).';
 COMMENT ON COLUMN public.skill_links.private IS

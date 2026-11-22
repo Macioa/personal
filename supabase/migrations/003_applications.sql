@@ -27,6 +27,7 @@ CREATE TABLE public.applications (
   rejection_reason text,
   recruiting_agency text,
   direct_recruiter boolean DEFAULT NULL,
+  abnormal_role boolean NOT NULL DEFAULT false,
   CONSTRAINT applications_custom_resume_text_chk
     CHECK (NOT custom_resume OR nullif(btrim(resume_text), '') IS NOT NULL),
   CONSTRAINT applications_custom_cover_letter_text_chk
@@ -47,6 +48,8 @@ COMMENT ON COLUMN public.applications.pending IS
   'Tracked as actively under review.';
 COMMENT ON COLUMN public.applications.rejected IS
   'Officially rejected.';
+COMMENT ON COLUMN public.applications.abnormal_role IS
+  'For jobs atypical to standard application roles';
 
 CREATE TABLE public.application_interviews (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
