@@ -6,8 +6,11 @@ from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether
 from resume_md import args, parse, inline, blocks_to_flow, grid
+from scripts.employment_timeline import RailStyle, tint, with_overlap_lines
 
 LINK = "#1a0dab"
+OVERLAP_COLORS = (LINK, "#000000", "#7a7a7a", "#2e6f5e", "#8a5a2b")
+RAIL = RailStyle(OVERLAP_COLORS, width=1.5, lane_gap=3, text_gap=6)
 M = 36
 st = {
     "name": ParagraphStyle("name", fontName="Times-Bold", fontSize=20, leading=24),
@@ -30,9 +33,12 @@ def main():
            ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0), ("VALIGN", (0, 0), (-1, -1), "BOTTOM")]
 
     def h3(b):
-        t = Table([[Paragraph("• " + inline(b["text"], LINK), st["h3l"]), Paragraph(inline(b["where"], LINK), st["h3r"])],
-                   ["", Paragraph(inline(b["dates"], LINK), st["dates"])]], colWidths=[W * 0.72, W * 0.28])
+        w = W - b["rail_indent"] - 6 if "rail_indent" in b else W  # 6 = frame padding the table overhangs
+        t = Table([[Paragraph("• " + tint(inline(b["text"], LINK), b), st["h3l"]), Paragraph(inline(b["where"], LINK), st["h3r"])],
+                   ["", Paragraph(inline(b["dates"], LINK), st["dates"])]], colWidths=[w * 0.72, w * 0.28])
         t.setStyle(TableStyle(pad))
+        if "rail_indent" in b:
+            t.hAlign = "LEFT"
         return [Spacer(1, 5), t]
 
     def table(b):
@@ -47,7 +53,8 @@ def main():
     for s in doc["sections"]:
         story.append(KeepTogether([Paragraph(inline(s["title"].upper(), LINK), st["sec"]),
                                    HRFlowable(width="100%", thickness=0.6, color=colors.black, spaceBefore=1, spaceAfter=3)]))
-        story += blocks_to_flow(s["blocks"], st, LINK, h3, table, s["title"] == "Skills")
+        story += with_overlap_lines(s["title"], s["blocks"], RAIL,
+                                    lambda bs: blocks_to_flow(bs, st, LINK, h3, table, s["title"] == "Skills"))
     if doc["disclaimer"]:
         story += [Spacer(1, 10), HRFlowable(width="100%", thickness=0.4, color=colors.grey, spaceAfter=4),
                   Paragraph("<br/>".join(inline(l, LINK) for l in doc["disclaimer"]), st["disc"])]

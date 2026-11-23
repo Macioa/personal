@@ -6,9 +6,12 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
 from reportlab.platypus import BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether
 from resume_md import args, parse, inline, blocks_to_flow
+from scripts.employment_timeline import RailStyle, keep_count, tint, with_overlap_lines
 
 DARK, RED, GOLD, GRAY = "#1b1b1b", "#8f0d0d", "#e6c96e", "#555555"
 LINK = RED
+OVERLAP_COLORS = (RED, "#a8841a", DARK, "#b5651d", GRAY)
+RAIL = RailStyle(OVERLAP_COLORS, width=3, lane_gap=3, text_gap=7)
 M, GAP = 34, 18
 LEFT = ("Summary", "Work Experience", "Projects")
 st = {
@@ -33,7 +36,7 @@ def section(title, blocks, width, keep=True):
         title, org = b["text"].rsplit(", ", 1) if ", " in b["text"] else (b["text"], "")
         out = [Spacer(1, 5), Paragraph(inline(title, LINK), st["title"])]
         if org:
-            out.append(Paragraph(inline(org, LINK), st["org"]))
+            out.append(Paragraph(tint(inline(org, LINK), b), st["org"]))
         meta = "    ".join(x for x in (b["dates"], b["where"]) if x)
         if meta:
             out.append(Paragraph(inline(meta, LINK), st["meta"]))
@@ -46,10 +49,11 @@ def section(title, blocks, width, keep=True):
                                      ("LINEBELOW", (0, 0), (-1, -2), 0.3, colors.HexColor("#dddddd"))]))
         return [Spacer(1, 2), t]
 
-    body = blocks_to_flow(blocks, st, LINK, h3, table, title == "Skills")
+    body = with_overlap_lines(title, blocks, RAIL, lambda bs: blocks_to_flow(bs, st, LINK, h3, table, title == "Skills"))
     head = [Paragraph(inline(title.upper(), LINK), st["sec"]),
             HRFlowable(width="100%", thickness=1.6, color=colors.HexColor(GOLD), spaceBefore=1, spaceAfter=3)]
-    return [KeepTogether(head + body[:2])] + body[2:] if keep else head + body
+    n = keep_count(body, 2)
+    return [KeepTogether(head + body[:n])] + body[n:] if keep else head + body
 
 
 def main():

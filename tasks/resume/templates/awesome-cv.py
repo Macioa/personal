@@ -7,9 +7,12 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
 from reportlab.platypus.flowables import Flowable
 from resume_md import args, parse, inline, blocks_to_flow, grid
+from scripts.employment_timeline import RailStyle, tint, with_overlap_lines
 
 RED, DARK, GRAY, LIGHT = "#dc3522", "#333333", "#5d5d5d", "#999999"
 LINK = RED
+OVERLAP_COLORS = (RED, DARK, LIGHT, "#f08a5d", GRAY)
+RAIL = RailStyle(OVERLAP_COLORS, width=2.5, lane_gap=3, text_gap=7)
 M = 40
 st = {
     "first": ParagraphStyle("first", fontName="Helvetica", fontSize=30, leading=34, alignment=TA_CENTER, textColor=GRAY),
@@ -51,10 +54,13 @@ def main():
 
     def h3(b):
         title, org = b["text"].rsplit(", ", 1) if ", " in b["text"] else ("", b["text"])
-        t = Table([[Paragraph(inline(org, LINK), st["org"]), Paragraph(inline(b["where"], LINK), st["where"])],
+        w = W - b["rail_indent"] - 6 if "rail_indent" in b else W  # 6 = frame padding the table overhangs
+        t = Table([[Paragraph(tint(inline(org, LINK), b), st["org"]), Paragraph(inline(b["where"], LINK), st["where"])],
                    [Paragraph(inline(title.upper(), LINK), st["title"]), Paragraph(inline(b["dates"], LINK), st["dates"])]],
-                  colWidths=[W * 0.7, W * 0.3])
+                  colWidths=[w * 0.7, w * 0.3])
         t.setStyle(TableStyle(pad))
+        if "rail_indent" in b:
+            t.hAlign = "LEFT"
         return [Spacer(1, 6), t]
 
     def table(b):
@@ -67,7 +73,8 @@ def main():
     story += [Paragraph(inline(l, LINK).replace(" - ", "  |  "), st["contact"]) for l in doc["contact"]]
     for s in doc["sections"]:
         story.append(Spacer(1, 8))
-        body = blocks_to_flow(s["blocks"], st, LINK, h3, table, s["title"] == "Skills")
+        body = with_overlap_lines(s["title"], s["blocks"], RAIL,
+                                  lambda bs: blocks_to_flow(bs, st, LINK, h3, table, s["title"] == "Skills"))
         story.append(KeepTogether([SectionHead(s["title"], W)] + body[:1]))
         story += body[1:]
     if doc["disclaimer"]:
