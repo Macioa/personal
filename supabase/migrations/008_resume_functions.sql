@@ -205,11 +205,13 @@ AS $$
       WHERE pe.pitch_id = p.id), '[]'::jsonb)
     || coalesce((SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
         'growth', gr.name,
-        'from', gr.start_year,
-        'to', gr.end_year,
-        'dsc', gr.desc_long)))
+        'from', CASE WHEN lp.id IS NULL THEN gr.start_year ELSE lp.start_year END,
+        'to', CASE WHEN lp.id IS NULL THEN gr.end_year ELSE lp.end_year END,
+        'dsc', CASE WHEN lp.id IS NULL THEN gr.desc_long ELSE lp."desc" END)))
       FROM public.pitch_growth pg
       JOIN public.personal_growth gr ON gr.id = pg.personal_growth_id
+      LEFT JOIN public.project_growth pl ON pl.personal_growth_id = gr.id AND gr.include_in_resume
+      LEFT JOIN public.projects lp ON lp.id = pl.project_id
       WHERE pg.pitch_id = p.id), '[]'::jsonb)
   FROM public.pitches p
   WHERE p.slug = ANY (p_slugs);
@@ -304,6 +306,40 @@ $$;
 
 COMMENT ON FUNCTION public.get_projects() IS
   'All non-private projects as a jsonb array, by priority then newest start. Public: callable by anon.';
+
+CREATE OR REPLACE FUNCTION public.check_growth_project_link(p_growth_id uuid)
+RETURNS void LANGUAGE plpgsql SET search_path = '' AS $$
+DECLARE g public.personal_growth; n integer;
+BEGIN
+  SELECT * INTO g FROM public.personal_growth WHERE id = p_growth_id;
+  IF NOT FOUND OR NOT g.include_in_resume THEN RETURN; END IF;
+  SELECT count(*) INTO n FROM public.project_growth WHERE personal_growth_id = p_growth_id;
+  IF n = 0 THEN RETURN; END IF;
+  IF n > 1 THEN RAISE EXCEPTION 'Resume growth row % can link to only one project', p_growth_id; END IF;
+  IF num_nonnulls(g.url, g.desc_short, g.desc_long, g.start_day, g.start_month, g.start_year,
+                  g.end_day, g.end_month, g.end_year) > 0
+     OR EXISTS (SELECT 1 FROM public.skill_links WHERE personal_growth_id = p_growth_id) THEN
+    RAISE EXCEPTION 'Resume growth row % must take url, descriptions, dates and skills from its project', p_growth_id;
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.guard_growth_project_link()
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $$
+BEGIN
+  PERFORM public.check_growth_project_link(
+    (to_jsonb(NEW) ->> CASE WHEN TG_TABLE_NAME = 'personal_growth' THEN 'id' ELSE 'personal_growth_id' END)::uuid);
+  RETURN NULL;
+END $$;
+
+CREATE CONSTRAINT TRIGGER personal_growth_project_link_trg
+  AFTER INSERT OR UPDATE ON public.personal_growth
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.guard_growth_project_link();
+CREATE CONSTRAINT TRIGGER project_growth_link_trg
+  AFTER INSERT OR UPDATE ON public.project_growth
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.guard_growth_project_link();
+CREATE CONSTRAINT TRIGGER skill_links_growth_link_trg
+  AFTER INSERT OR UPDATE ON public.skill_links
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.guard_growth_project_link();
 
 CREATE OR REPLACE FUNCTION public.jsonb_compact(j jsonb)
 RETURNS jsonb
@@ -409,4 +445,15 @@ CREATE OR REPLACE VIEW public.resume WITH (security_invoker = true) AS
                    FROM skill_links l
                      JOIN sk ON sk.id = l.skill_id
                   WHERE l.personal_growth_id = g.id)) ORDER BY g.end_year DESC, g.start_year DESC) AS jsonb_agg
-           FROM personal_growth g)) AS personal_growth;
+           FROM personal_growth g)) AS personal_growth,
+    jsonb_compact(( SELECT jsonb_agg(jsonb_build_object('name', g.name, 'website', CASE WHEN p.id IS NULL THEN g.url ELSE p.homepage_url END, 'last_title', g.resume_title, 'resume_desc', CASE WHEN p.id IS NULL THEN g.desc_short ELSE p."desc" END, 'dates', CASE WHEN p.id IS NULL THEN resume_dates(g.start_month, g.start_year, g.end_month, g.end_year) ELSE resume_dates(p.start_month, p.start_year, p.end_month, p.end_year) END, 'skills', CASE WHEN p.id IS NULL THEN ( SELECT jsonb_agg(sk.name ORDER BY sk.sort_rank) AS jsonb_agg
+                   FROM skill_links l
+                     JOIN sk ON sk.id = l.skill_id
+                  WHERE l.personal_growth_id = g.id) ELSE ( SELECT jsonb_agg(sk.name ORDER BY sk.sort_rank) AS jsonb_agg
+                   FROM project_skills ps
+                     JOIN sk ON sk.id = ps.skill_id
+                  WHERE ps.project_id = p.id) END) ORDER BY COALESCE(p.end_year, g.end_year) DESC, COALESCE(p.end_month, g.end_month) DESC, COALESCE(p.start_year, g.start_year) DESC) AS jsonb_agg
+           FROM personal_growth g
+             LEFT JOIN project_growth pl ON pl.personal_growth_id = g.id
+             LEFT JOIN projects p ON p.id = pl.project_id
+          WHERE g.include_in_resume AND COALESCE(p.start_year, g.start_year) IS NOT NULL)) AS growth_history;

@@ -1,5 +1,5 @@
-"""jd-select-pitches.md via Gemini -> selected_pitches.md
-Usage: python scripts/resume_select/select_pitches.py --company-role <company-role> [--repo-path <abs>]"""
+"""jd-select-pitches.md via --runner -> selected_pitches.md
+Usage: python scripts/resume_select/select_pitches.py --company-role <company-role> [--runner gemini|claude] [--repo-path <abs>]"""
 from pydantic import BaseModel
 from common import args, read, read_json, prompt, run, write, dump
 

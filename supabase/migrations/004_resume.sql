@@ -111,7 +111,9 @@ CREATE TABLE public.personal_growth (
   end_day integer,
   end_month integer,
   end_year integer,
-  private boolean NOT NULL DEFAULT false
+  private boolean NOT NULL DEFAULT false,
+  include_in_resume boolean NOT NULL DEFAULT false,
+  resume_title text
 );
 
 CREATE TABLE public.public_contact_info (

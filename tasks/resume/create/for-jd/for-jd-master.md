@@ -30,10 +30,12 @@ After each step completes, prepend its token usage (from the Agent result's usag
 !!! STOP Here and present top jd requirements vs fuzzy matches. Continue after user approval
 
 **Group 6**
-- (direct) `python <repo path>/scripts/resume_select/select_skills.py --company-role [company-role]` → `selected_skills.md`
-- (direct) `python <repo path>/scripts/resume_select/select_employment.py --company-role [company-role]` → `selected_employment.md`
-- (direct) `python <repo path>/scripts/resume_select/select_projects.py --company-role [company-role]` → `selected_projects.md`
-- (direct) `python <repo path>/scripts/resume_select/select_pitches.py --company-role [company-role]` → `selected_pitches.md`
+
+Run each with `--runner gemini`. If one exits non-zero, rerun only that script with `--runner claude`. HALT if Claude also fails.
+- (direct) `python <repo path>/scripts/resume_select/select_skills.py --company-role [company-role] --runner gemini` → `selected_skills.md`
+- (direct) `python <repo path>/scripts/resume_select/select_employment.py --company-role [company-role] --runner gemini` → `selected_employment.md`
+- (direct) `python <repo path>/scripts/resume_select/select_projects.py --company-role [company-role] --runner gemini` → `selected_projects.md`
+- (direct) `python <repo path>/scripts/resume_select/select_pitches.py --company-role [company-role] --runner gemini` → `selected_pitches.md`
 
 **Group 7**
 - `tasks/jd-summary.md` → `resume_summary.md`

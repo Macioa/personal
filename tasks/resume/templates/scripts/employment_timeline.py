@@ -111,7 +111,7 @@ class _Rails:
             canv.setLineWidth(st.width)
             canv.setLineCap(1)
             for i, job in enumerate(self.jobs):
-                a = max(self.tops[i], s["d0"])
+                a = max(min(self.tops[i], to_dist(job["span"][1])), s["d0"])
                 b = min(max(to_dist(job["span"][0]), self.tops[i] + st.width * 3), s["d1"])
                 if b <= a:
                     continue

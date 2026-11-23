@@ -1,25 +1,26 @@
-"""Shared runner for the for-jd selection tasks: rulebook prompt -> Gemini REST -> pydantic -> checked output."""
-import argparse, json, sys, time
+"""Shared runner for the for-jd selection tasks: rulebook prompt -> selected runner -> pydantic -> checked output."""
+import argparse, importlib, json, sys
 from pathlib import Path
-import requests
 from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts" / "vector"))
-from db import env  # noqa: E402
 
-MODEL = "gemini-3.1-flash-lite"  # same as homepage-2026 netlify/functions/chat.mts
-URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 TASKS = ROOT / "tasks" / "resume" / "create" / "for-jd" / "tasks"
 MAX_TRIES = 3
+RUNNERS = {"gemini": "run_with_gemini_remote", "claude": "run_with_claude_cli"}
+_runner = "gemini"
 
 
-# Parse --company-role / --repo-path; return temp folder Path
+# Parse --company-role / --repo-path / --runner; return temp folder Path
 def args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--company-role", required=True)
     ap.add_argument("--repo-path", default=str(ROOT))
+    ap.add_argument("--runner", choices=RUNNERS, default="gemini")
     a = ap.parse_args()
+    global _runner
+    _runner = a.runner
     return a.repo_path, a.company_role, Path(a.repo_path) / "temp" / "applications" / a.company_role / "temp"
 
 
@@ -39,24 +40,9 @@ def prompt(task_file, repo, role, inputs, contract):
     return f"{rules}\n\nThe input files are below; do not read anything else.\n\n{files}\n\nReply contract: {contract}"
 
 
-# One structured-output request; retries rate limits and server errors.
-def generate(text, schema):
-    body = {"contents": [{"role": "user", "parts": [{"text": text}]}],
-            "generationConfig": {"temperature": 0, "responseMimeType": "application/json",
-                                 "responseJsonSchema": schema.model_json_schema()}}
-    for attempt in range(3):
-        r = requests.post(URL, headers={"x-goog-api-key": env("RESUME_GEMINI_KEY")}, json=body, timeout=180)
-        if r.status_code != 429 and r.status_code < 500:
-            break
-        if attempt < 2:
-            time.sleep(2 ** (attempt + 1))
-    if not r.ok:
-        sys.exit(f"Gemini request failed ({r.status_code}): {r.text[:500]}")
-    return r.json()
-
-
-# Call Gemini with structured output; check() returns error str or None. Retries with the error fed back.
+# Call the selected runner with structured output; check() returns error str or None. Retries with the error fed back.
 def run(text, schema, check):
+    generate = importlib.import_module(RUNNERS[_runner]).generate
     tokens, msg = 0, text
     for _ in range(MAX_TRIES):
         r = generate(msg, schema)
@@ -70,7 +56,7 @@ def run(text, schema, check):
         if not err:
             return out, tokens
         msg = f"{text}\n\nYour previous reply was rejected: {err}\nFix it and reply again."
-    sys.exit(f"Gemini reply failed validation after {MAX_TRIES} tries: {err}")
+    sys.exit(f"{_runner} reply failed validation after {MAX_TRIES} tries: {err}")
 
 
 def write(folder, name, tokens, body):

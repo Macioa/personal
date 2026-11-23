@@ -1,12 +1,32 @@
-"""jd-select-employment.md via Gemini -> selected_employment.md
-Usage: python scripts/resume_select/select_employment.py --company-role <company-role> [--repo-path <abs>]"""
-import re
+"""jd-select-employment.md via --runner -> selected_employment.md
+Usage: python scripts/resume_select/select_employment.py --company-role <company-role> [--runner gemini|claude] [--repo-path <abs>]"""
+import json, re
 from pydantic import BaseModel
 from common import args, read, read_json, prompt, run, write, dump
 from db import env, pg_connect
 
+
+# Months value of an entry's end date, for placing growth rows. Present sorts first, undated last.
+def end_months(entry):
+    dates = entry.get("dates") or ""
+    if "present" in dates.lower():
+        return float("inf")
+    found = re.findall(r"(?:(\d{1,2})/)?(\d{4})", dates)
+    return int(found[-1][1]) * 12 + int(found[-1][0] or 12) if found else -1
+
+
+# Insert growth rows by end date; employer order is left as the view returned it.
+def with_growth(jobs, growth):
+    for g in growth or []:
+        at = next((i for i, j in enumerate(jobs) if end_months(j) < end_months(g)), len(jobs))
+        jobs.insert(at, g)
+    return jobs
+
+
 repo, role, d = args()
-jobs = read_json(d, "resume-view-employment.md")
+growth_file = d / "resume-view-growth_history.md"
+jobs = with_growth(read_json(d, "resume-view-employment.md"),
+                   json.loads(growth_file.read_text(encoding="utf-8")) if growth_file.exists() else None)
 
 # Whole alternate_skills table (resume_reader): JD skill I lack -> direct competitors I have
 with pg_connect(env("RESUME_READER_DB_URL")) as db:
