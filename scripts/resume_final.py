@@ -72,7 +72,7 @@ def main():
         rows = [r for k in keys for r in ed.get(k, [])]
         if rows:
             out += ["", f"## {title}", ""]
-            out += [f"- **{r['name']}**, {r['dates']}" + (f", {r['desc_short']}" if area and r.get("desc_short") else "") for r in rows]
+            out += [f"- **{r['name']}**, {r['dates']}" + (" (expired)" if keys is CERT and "expired" in (r.get("desc_short") or "").lower() else "") + (f", {r['desc_short']}" if area and r.get("desc_short") else "") for r in rows]
     out += ["", "---", "", DISCLAIMER, ""]
     (d / "final.md").write_text("\n".join(out), encoding="utf-8")
 

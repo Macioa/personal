@@ -22,15 +22,14 @@ STABLE
 AS $$
   WITH raw AS (
     SELECT
-      coalesce(t.start_year, e.start_year, ed.start_year, g.start_year) AS sy,
-      coalesce(t.start_month, e.start_month, ed.start_month, g.start_month) AS sm,
-      coalesce(t.start_day, e.start_day, ed.start_day, g.start_day) AS sd,
-      coalesce(t.end_year, e.end_year, ed.end_year, g.end_year) AS ey,
-      coalesce(t.end_month, e.end_month, ed.end_month, g.end_month) AS em,
-      coalesce(t.end_day, e.end_day, ed.end_day, g.end_day) AS endd
+      coalesce(t.start_year, ed.start_year, g.start_year) AS sy,
+      coalesce(t.start_month, ed.start_month, g.start_month) AS sm,
+      coalesce(t.start_day, ed.start_day, g.start_day) AS sd,
+      coalesce(t.end_year, ed.end_year, g.end_year) AS ey,
+      coalesce(t.end_month, ed.end_month, g.end_month) AS em,
+      coalesce(t.end_day, ed.end_day, g.end_day) AS endd
     FROM public.skill_links l
     LEFT JOIN public.employment_titles t ON t.id = l.employment_title_id
-    LEFT JOIN public.employer e ON e.id = l.employer_id
     LEFT JOIN public.education_and_training ed ON ed.id = l.education_and_training_id
     LEFT JOIN public.personal_growth g ON g.id = l.personal_growth_id
     WHERE l.skill_id = ANY (p_skill_ids)
@@ -191,17 +190,17 @@ AS $$
               WHERE ps.pitch_id = p.id),
         p_mode) AS g), '[]'::jsonb),
     coalesce((SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-        'employer', coalesce(e.name, te.name),
+        'employer', te.name,
         'title', t.name,
         'edu', d.name,
-        'from', coalesce(t.start_year, e.start_year, d.start_year),
-        'to', coalesce(t.end_year, e.end_year, d.end_year),
-        'dsc', coalesce(t."desc", e.resume_desc, d.desc_long),
+        'from', coalesce(t.start_year, d.start_year),
+        'to', coalesce(t.end_year, d.end_year),
+        'dsc', coalesce(b.text, t."desc", d.desc_long),
         'note', pe.note)))
       FROM public.pitch_evidence pe
-      LEFT JOIN public.employment_titles t ON t.id = pe.employment_title_id
+      LEFT JOIN public.employment_resumedesc_bullets b ON b.id = pe.employment_resumedesc_bullet_id
+      LEFT JOIN public.employment_titles t ON t.id = coalesce(pe.employment_title_id, b.employment_title_id)
       LEFT JOIN public.employer te ON te.id = t.employer_id
-      LEFT JOIN public.employer e ON e.id = pe.employer_id
       LEFT JOIN public.education_and_training d ON d.id = pe.education_and_training_id
       WHERE pe.pitch_id = p.id), '[]'::jsonb)
     || coalesce((SELECT jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
@@ -358,14 +357,23 @@ CREATE OR REPLACE VIEW public.resume WITH (security_invoker = true) AS
            FROM public_contact_info c)) AS intro,
     jsonb_compact(( SELECT jsonb_agg(jsonb_build_object('slug', p.slug, 'type', p.type, 'title', p.title, 'use_when', p.use_when, 'material', p.material, 'keywords', p.keywords, 'evidence', jsonb_build_object('employers', ( SELECT jsonb_agg(DISTINCT e.name) AS jsonb_agg
                    FROM pitch_evidence pe
-                     LEFT JOIN employment_titles t ON t.id = pe.employment_title_id
-                     JOIN employer e ON e.id = COALESCE(pe.employer_id, t.employer_id)
+                     LEFT JOIN employment_resumedesc_bullets b ON b.id = pe.employment_resumedesc_bullet_id
+                     JOIN employment_titles t ON t.id = COALESCE(pe.employment_title_id, b.employment_title_id)
+                     JOIN employer e ON e.id = t.employer_id
                   WHERE pe.pitch_id = p.id), 'education_and_training', ( SELECT jsonb_agg(DISTINCT d.name) AS jsonb_agg
                    FROM pitch_evidence pe
                      JOIN education_and_training d ON d.id = pe.education_and_training_id
                   WHERE pe.pitch_id = p.id))) ORDER BY p.slug) AS jsonb_agg
            FROM pitches p)) AS pitches,
-    jsonb_compact(( SELECT jsonb_agg(jsonb_build_object('name', e.name, 'website', e.website, 'resume_desc', e.resume_desc, 'last_title', e.end_title, 'dates', resume_dates(e.start_month, e.start_year, e.end_month, e.end_year), 'location', ( SELECT t.location
+    jsonb_compact(( SELECT jsonb_agg(jsonb_build_object('name', e.name, 'website', e.website, 'resume_desc', ( SELECT t."desc"
+                   FROM employment_titles t
+                  WHERE t.employer_id = e.id
+                  ORDER BY t.start_year DESC NULLS LAST, t.start_month DESC NULLS LAST
+                 LIMIT 1), 'last_title', ( SELECT t.name
+                   FROM employment_titles t
+                  WHERE t.employer_id = e.id
+                  ORDER BY t.start_year DESC NULLS LAST, t.start_month DESC NULLS LAST
+                 LIMIT 1), 'dates', resume_dates(e.start_month, e.start_year, e.end_month, e.end_year), 'location', ( SELECT t.location
                    FROM employment_titles t
                   WHERE t.employer_id = e.id
                   ORDER BY t.start_year DESC NULLS LAST, t.start_month DESC NULLS LAST
@@ -373,16 +381,16 @@ CREATE OR REPLACE VIEW public.resume WITH (security_invoker = true) AS
                    FROM employment_titles t
                   WHERE t.employer_id = e.id
                   ORDER BY t.start_year DESC NULLS LAST, t.start_month DESC NULLS LAST
-                 LIMIT 1), 'bullets', ( SELECT jsonb_agg(b.v ORDER BY t.start_year DESC NULLS LAST, t.start_month DESC NULLS LAST, b.n) AS jsonb_agg
-                   FROM employment_titles t,
-                    LATERAL unnest(t.bullets) WITH ORDINALITY b(v, n)
+                 LIMIT 1), 'bullets', ( SELECT jsonb_agg(b.text ORDER BY t.start_year DESC NULLS LAST, t.start_month DESC NULLS LAST, b.priority DESC NULLS LAST, b.id) AS jsonb_agg
+                   FROM employment_titles t
+                     JOIN employment_resumedesc_bullets b ON b.employment_title_id = t.id
                   WHERE t.employer_id = e.id), 'skills', ( SELECT jsonb_agg(x.name ORDER BY x.sort_rank) AS jsonb_agg
                    FROM ( SELECT DISTINCT sk.name,
                             sk.sort_rank
                            FROM skill_links l
                              JOIN sk ON sk.id = l.skill_id
-                             LEFT JOIN employment_titles t ON t.id = l.employment_title_id
-                          WHERE l.employer_id = e.id OR t.employer_id = e.id) x)) ORDER BY e.end_year DESC, e.end_month DESC, e.start_year DESC) AS jsonb_agg
+                             JOIN employment_titles t ON t.id = l.employment_title_id
+                          WHERE t.employer_id = e.id) x)) ORDER BY e.end_year DESC, e.end_month DESC, e.start_year DESC) AS jsonb_agg
            FROM employer e)) AS employment,
     jsonb_compact(( SELECT jsonb_object_agg(edu.type, edu.rows ORDER BY edu.type) AS jsonb_object_agg
            FROM edu)) AS education,

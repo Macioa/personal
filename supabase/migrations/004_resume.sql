@@ -8,8 +8,6 @@ CREATE TABLE public.employer (
   phone text,
   website text,
   company_desc text,
-  resume_desc text,
-  end_title text,
   start_day integer,
   start_month integer,
   start_year integer,
@@ -24,7 +22,6 @@ CREATE TABLE public.employment_titles (
   employer_id uuid NOT NULL REFERENCES public.employer (id) ON DELETE CASCADE,
   name text,
   "desc" text,
-  bullets text[],
   location text,
   start_day integer,
   start_month integer,
@@ -34,6 +31,14 @@ CREATE TABLE public.employment_titles (
   end_year integer,
   remote boolean,
   private boolean NOT NULL DEFAULT false
+);
+
+CREATE TABLE public.employment_resumedesc_bullets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text NOT NULL,
+  employment_title_id uuid NOT NULL REFERENCES public.employment_titles (id) ON DELETE CASCADE,
+  text text NOT NULL,
+  priority double precision
 );
 
 CREATE TABLE public.employer_portals (
@@ -54,7 +59,9 @@ CREATE TABLE public.skills (
   priority integer,
   embedding extensions.vector(384),
   aliases text[] NOT NULL DEFAULT '{}',
-  preferred_measure public.skill_usage_mode NOT NULL DEFAULT 'start_to_end'
+  preferred_measure public.skill_usage_mode NOT NULL DEFAULT 'start_to_end',
+  self_rank integer
+    CONSTRAINT skills_self_rank_chk CHECK (self_rank BETWEEN 0 AND 10)
 );
 
 CREATE TABLE public.skill_groups (
@@ -123,22 +130,22 @@ COMMENT ON COLUMN public.public_contact_info.links IS
 
 COMMENT ON COLUMN public.employer.company_desc IS
   'Description of the company only: industry and purpose, from public info on the company site. Nothing about the position or the employee.';
-COMMENT ON COLUMN public.employer.resume_desc IS
-  'Resume text for the role: industry, role description and employee contributions. Leave null if uncertain.';
-COMMENT ON COLUMN public.employer.end_title IS
-  'Last title held at this employer.';
 COMMENT ON COLUMN public.employer.private IS
   'True hides the row (and its titles and skill links) from resume_reader. Use for work kept off the resume.';
 COMMENT ON COLUMN public.employment_titles."desc" IS
   'Resume text for this title: role description and employee contributions. Leave null if uncertain.';
-COMMENT ON COLUMN public.employment_titles.bullets IS
-  'Resume bullet points for this title, in display order: one contribution or fact per element. Leave null if uncertain.';
 COMMENT ON COLUMN public.employment_titles.location IS
   'Work location for this title as City, ST (or region). Use remote for remote/onsite; leave null if unknown.';
 COMMENT ON COLUMN public.employment_titles.remote IS
   'True if the role was remote, false if onsite; null if unknown.';
 COMMENT ON COLUMN public.employment_titles.private IS
   'True hides the title (and its skill links) from resume_reader.';
+COMMENT ON TABLE public.employment_resumedesc_bullets IS
+  'Resume description bullets for employment.';
+COMMENT ON COLUMN public.employment_resumedesc_bullets.slug IS
+  '1-4 word summary of the bullet.';
+COMMENT ON COLUMN public.employment_resumedesc_bullets.priority IS
+  'Sort order, higher first. Nullable.';
 COMMENT ON COLUMN public.employer_portals.w2_or_tax IS
   'True if the portal holds W-2s, pay stubs or other tax documents.';
 COMMENT ON COLUMN public.employer_portals.contains_contracts IS
@@ -159,6 +166,8 @@ COMMENT ON COLUMN public.skills.preferred_measure IS
   'Years measure search_skills uses for this skill and its groups unless the caller passes a mode.';
 COMMENT ON COLUMN public.skills.priority IS
   'User defined rankings for skill significance.';
+COMMENT ON COLUMN public.skills.self_rank IS
+  'User-decided mastery level of the skill (0-10).';
 COMMENT ON COLUMN public.skills.embedding IS
   'gte-small (384) of name + desc. Filled by edge function embed-skill via trigger.';
 COMMENT ON TABLE public.skill_groups IS

@@ -35,6 +35,7 @@ ALTER TABLE public.abuse_impact_escalator ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.abuse_severity_escalator ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employer ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employment_titles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employment_resumedesc_bullets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_portals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skills ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_groups ENABLE ROW LEVEL SECURITY;
@@ -82,6 +83,7 @@ ALTER TABLE public.abuse_impact_escalator FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.abuse_severity_escalator FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employer FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employment_titles FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.employment_resumedesc_bullets FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.employer_portals FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.skills FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.skill_groups FORCE ROW LEVEL SECURITY;
@@ -129,6 +131,7 @@ REVOKE ALL ON TABLE public.abuse_impact_escalator FROM anon, authenticated;
 REVOKE ALL ON TABLE public.abuse_severity_escalator FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employer FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employment_titles FROM anon, authenticated;
+REVOKE ALL ON TABLE public.employment_resumedesc_bullets FROM anon, authenticated;
 REVOKE ALL ON TABLE public.employer_portals FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skills FROM anon, authenticated;
 REVOKE ALL ON TABLE public.skill_groups FROM anon, authenticated;
@@ -247,6 +250,7 @@ GRANT chat TO authenticator;
 GRANT USAGE ON SCHEMA public TO resume_reader;
 GRANT SELECT ON TABLE public.employer TO resume_reader;
 GRANT SELECT ON TABLE public.employment_titles TO resume_reader;
+GRANT SELECT ON TABLE public.employment_resumedesc_bullets TO resume_reader;
 GRANT SELECT ON TABLE public.education_and_training TO resume_reader;
 GRANT SELECT ON TABLE public.personal_growth TO resume_reader;
 GRANT SELECT ON TABLE public.public_contact_info TO resume_reader;
@@ -300,6 +304,10 @@ CREATE POLICY resume_reader_select ON public.employment_titles
   FOR SELECT TO resume_reader, chat
   USING (NOT private AND EXISTS (SELECT 1 FROM public.employer e WHERE e.id = employer_id));
 
+CREATE POLICY resume_reader_select ON public.employment_resumedesc_bullets
+  FOR SELECT TO resume_reader, chat
+  USING (EXISTS (SELECT 1 FROM public.employment_titles t WHERE t.id = employment_title_id));
+
 CREATE POLICY resume_reader_select ON public.education_and_training
   FOR SELECT TO resume_reader, chat
   USING (NOT private);
@@ -339,8 +347,6 @@ CREATE POLICY resume_reader_select ON public.skill_links
     AND EXISTS (SELECT 1 FROM public.skills s WHERE s.id = skill_id)
     AND (employment_title_id IS NULL
       OR EXISTS (SELECT 1 FROM public.employment_titles t WHERE t.id = employment_title_id))
-    AND (employer_id IS NULL
-      OR EXISTS (SELECT 1 FROM public.employer e WHERE e.id = employer_id))
     AND (education_and_training_id IS NULL
       OR EXISTS (SELECT 1 FROM public.education_and_training d WHERE d.id = education_and_training_id))
     AND (personal_growth_id IS NULL
@@ -360,8 +366,8 @@ CREATE POLICY resume_reader_select ON public.pitch_evidence
   USING (
     (employment_title_id IS NULL
       OR EXISTS (SELECT 1 FROM public.employment_titles t WHERE t.id = employment_title_id))
-    AND (employer_id IS NULL
-      OR EXISTS (SELECT 1 FROM public.employer e WHERE e.id = employer_id))
+    AND (employment_resumedesc_bullet_id IS NULL
+      OR EXISTS (SELECT 1 FROM public.employment_resumedesc_bullets b WHERE b.id = employment_resumedesc_bullet_id))
     AND (education_and_training_id IS NULL
       OR EXISTS (SELECT 1 FROM public.education_and_training d WHERE d.id = education_and_training_id))
   );
@@ -418,6 +424,7 @@ GRANT EXECUTE ON FUNCTION public.skill_sort_keys(), public.project_sort_keys() T
 
 GRANT SELECT ON TABLE public.employer TO chat;
 GRANT SELECT ON TABLE public.employment_titles TO chat;
+GRANT SELECT ON TABLE public.employment_resumedesc_bullets TO chat;
 GRANT SELECT ON TABLE public.education_and_training TO chat;
 GRANT SELECT ON TABLE public.personal_growth TO chat;
 GRANT SELECT ON TABLE public.hardships TO chat;

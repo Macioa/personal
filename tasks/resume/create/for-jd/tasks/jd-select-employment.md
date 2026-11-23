@@ -6,6 +6,6 @@
    - If a JD skill is a key in `alternate_skills.md`, its listed alternates in an employment's `skills` count as explicit matches: rank right after explicit JD skills, before same-group stand-ins. Write each as `<skill>(similar to <JD skill>)`, e.g. `AWS(similar to Azure)`.
    - Also treat as explicit any employment skill whose name matches a JD skill or alias in `jd_requirements.md`, even if absent from `skill_search_output.md`.
    - Across all employments, every JD skill present in any employment's own `skills` must appear at least once. Do not repeat a skill on every job if it crowds out an unshown JD skill.
-   - Bullets: prefer bullets naming JD tools (Docker, AWS, AI/LLM tools) over generic ones.
+   - Bullets: prefer bullets naming JD tools (Docker, AWS, AI/LLM tools) over generic ones. Each `bullets` list is in priority order, highest first: break ties by keeping the earlier bullet.
    - Select only from that employment's own `bullets` and `skills`. Do not add, rename or reword, except the `(similar to <JD skill>)` suffix above.
 3. Output to `selected_employment.md`, same folder, JSON format. Keep every employment and all its resume view data verbatim; only `bullets` (3) and `skills` (5) are reduced.

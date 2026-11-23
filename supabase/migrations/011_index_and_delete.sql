@@ -39,6 +39,9 @@ CREATE INDEX abuse_application_conversation_id_idx
 CREATE INDEX employment_titles_employer_id_idx
   ON public.employment_titles (employer_id);
 
+CREATE INDEX employment_resumedesc_bullets_employment_title_id_idx
+  ON public.employment_resumedesc_bullets (employment_title_id);
+
 CREATE INDEX employer_employer_portals_employer_portal_id_idx
   ON public.employer_employer_portals (employer_portal_id);
 
@@ -50,9 +53,6 @@ CREATE INDEX skill_links_skill_id_idx
 
 CREATE INDEX skill_links_employment_title_id_idx
   ON public.skill_links (employment_title_id);
-
-CREATE INDEX skill_links_employer_id_idx
-  ON public.skill_links (employer_id);
 
 CREATE INDEX skill_links_education_and_training_id_idx
   ON public.skill_links (education_and_training_id);
@@ -79,8 +79,8 @@ CREATE INDEX pitch_evidence_pitch_id_idx
 CREATE INDEX pitch_evidence_employment_title_id_idx
   ON public.pitch_evidence (employment_title_id);
 
-CREATE INDEX pitch_evidence_employer_id_idx
-  ON public.pitch_evidence (employer_id);
+CREATE INDEX pitch_evidence_employment_resumedesc_bullet_id_idx
+  ON public.pitch_evidence (employment_resumedesc_bullet_id);
 
 CREATE INDEX pitch_evidence_education_and_training_id_idx
   ON public.pitch_evidence (education_and_training_id);

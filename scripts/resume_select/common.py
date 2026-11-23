@@ -1,13 +1,15 @@
-"""Shared runner for the for-jd selection tasks: rulebook prompt -> Gemini (LangChain) -> pydantic -> checked output."""
-import argparse, json, os, sys
+"""Shared runner for the for-jd selection tasks: rulebook prompt -> Gemini REST -> pydantic -> checked output."""
+import argparse, json, sys, time
 from pathlib import Path
-from langchain_google_genai import ChatGoogleGenerativeAI
+import requests
+from pydantic import ValidationError
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts" / "vector"))
 from db import env  # noqa: E402
 
 MODEL = "gemini-3.1-flash-lite"  # same as homepage-2026 netlify/functions/chat.mts
+URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 TASKS = ROOT / "tasks" / "resume" / "create" / "for-jd" / "tasks"
 MAX_TRIES = 3
 
@@ -37,16 +39,34 @@ def prompt(task_file, repo, role, inputs, contract):
     return f"{rules}\n\nThe input files are below; do not read anything else.\n\n{files}\n\nReply contract: {contract}"
 
 
+# One structured-output request; retries rate limits and server errors.
+def generate(text, schema):
+    body = {"contents": [{"role": "user", "parts": [{"text": text}]}],
+            "generationConfig": {"temperature": 0, "responseMimeType": "application/json",
+                                 "responseJsonSchema": schema.model_json_schema()}}
+    for attempt in range(3):
+        r = requests.post(URL, headers={"x-goog-api-key": env("RESUME_GEMINI_KEY")}, json=body, timeout=180)
+        if r.status_code != 429 and r.status_code < 500:
+            break
+        if attempt < 2:
+            time.sleep(2 ** (attempt + 1))
+    if not r.ok:
+        sys.exit(f"Gemini request failed ({r.status_code}): {r.text[:500]}")
+    return r.json()
+
+
 # Call Gemini with structured output; check() returns error str or None. Retries with the error fed back.
 def run(text, schema, check):
-    llm = ChatGoogleGenerativeAI(model=MODEL, api_key=env("RESUME_GEMINI_KEY"), temperature=0, max_retries=2)
-    s = llm.with_structured_output(schema, include_raw=True)
     tokens, msg = 0, text
     for _ in range(MAX_TRIES):
-        r = s.invoke(msg)
-        tokens += ((r["raw"].usage_metadata or {}).get("total_tokens") or 0)
-        out = r["parsed"]
-        err = r.get("parsing_error") or (check(out) if out is not None else "no parsed reply")
+        r = generate(msg, schema)
+        tokens += r.get("usageMetadata", {}).get("totalTokenCount") or 0
+        parts = (r.get("candidates") or [{}])[0].get("content", {}).get("parts") or []
+        try:
+            out = schema.model_validate_json("".join(p.get("text", "") for p in parts))
+            err = check(out)
+        except ValidationError as e:
+            err = f"reply did not match the schema: {e}"
         if not err:
             return out, tokens
         msg = f"{text}\n\nYour previous reply was rejected: {err}\nFix it and reply again."
