@@ -1,3 +1,4 @@
+# Design source: Awesome-CV, https://github.com/posquit0/Awesome-CV
 """Render a resume md (scripts/resume_final.py format) to PDF in the awesome-cv style.
 Usage: python awesome-cv.py --input-abs-path <md> --output-abs-path <pdf>"""
 from reportlab.lib.pagesizes import A4

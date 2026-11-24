@@ -35,6 +35,11 @@ def main():
     d = Path(ap.parse_args().output_abs_path)
     intro = load(d / "resume-view-intro.md")[0]
     out = [f"# {intro['name']}", ""]
+    photo_file = d / "resume-view-profile_photo.md"
+    photos = load(photo_file) if photo_file.exists() else []
+    if photos:
+        image = f"![Profile photo]({photos[0]['photo_url']})"
+        out += [f"[{image}]({photos[0]['desc_url']})" if photos[0].get("desc_url") else image, ""]
     emails = [f"[Email](mailto:{e})" for e in intro.get("email", [])]
     phones = [tel_link(p) for p in intro.get("phone", [])]
     out.append(" - ".join(intro.get("location", []) + phones + emails))

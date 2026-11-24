@@ -1,3 +1,4 @@
+# Design source: AltaCV, https://github.com/liantze/AltaCV
 """Render a resume md (scripts/resume_final.py format) to PDF in the altacv style (two columns).
 Left column: Summary, Work Experience, Projects. Right column: every other section.
 Usage: python altacv.py --input-abs-path <md> --output-abs-path <pdf>"""

@@ -265,3 +265,18 @@ COMMENT ON COLUMN public.projects.lessons_learned IS
 COMMENT ON COLUMN public.projects.homepage_url IS
   'Project page on the personal site. Generated from name.';
 
+-- ---------------------------------------------------------------------------
+-- Profile photos
+-- ---------------------------------------------------------------------------
+CREATE TABLE public.profile_photo (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  priority double precision,
+  "desc" text,
+  photo_url text NOT NULL,
+  desc_url text
+);
+COMMENT ON TABLE public.profile_photo IS
+  'Profile photos for resumes.';
+COMMENT ON COLUMN public.profile_photo.priority IS
+  'Display order: higher first, null last.';
+

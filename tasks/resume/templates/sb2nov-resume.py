@@ -1,3 +1,4 @@
+# Design source: sb2nov/resume, https://github.com/sb2nov/resume
 """Render a resume md (scripts/resume_final.py format) to PDF in the sb2nov-resume style.
 Usage: python sb2nov-resume.py --input-abs-path <md> --output-abs-path <pdf>"""
 from reportlab.lib.pagesizes import letter

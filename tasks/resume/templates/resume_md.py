@@ -5,6 +5,7 @@ from reportlab.platypus import Paragraph, ListFlowable, ListItem, Table, TableSt
 
 LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
 META = re.compile(r"^(.+?) \|(?: (.*))?$")
+PHOTO = re.compile(r"^(?:\[)?!\[[^\]]*\]\(([^)\s]+)\)(?:\]\(([^)\s]+)\))?$")
 
 
 def args():
@@ -25,12 +26,12 @@ def inline(s, link_color):
 
 
 def parse(path):
-    """-> {name, contact: [lines], sections: [{title, blocks}], disclaimer: [lines]}.
+    """-> {name, photo: {url, link} | None, contact: [lines], sections: [{title, blocks}], disclaimer: [lines]}.
     Blocks: h3 {text, dates, where} | p {lines} | ul {items} | table {rows} ."""
     lines = open(path, encoding="utf-8").read().splitlines()
     if lines and lines[0].startswith("Tokens:"):
         lines = lines[1:]
-    doc = {"name": "", "contact": [], "sections": [], "disclaimer": []}
+    doc = {"name": "", "photo": None, "contact": [], "sections": [], "disclaimer": []}
     buf, meta_ok = [], False
 
     def target():
@@ -55,6 +56,9 @@ def parse(path):
 
     for line in lines:
         s = line.rstrip()
+        photo = PHOTO.match(s) if not doc["sections"] else None
+        if photo:
+            flush(); doc["photo"] = {"url": photo[1], "link": photo[2]}; continue
         if s.startswith("# "):
             flush(); doc["name"] = s[2:]; continue
         if s.startswith("## "):
