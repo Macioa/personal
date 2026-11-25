@@ -1,8 +1,8 @@
 import argparse, json, re, sys
 from pathlib import Path
 
-DISCLAIMER = ("> This resume was created from a database of personal resume info selected for this role and manually "
-    "reviewed before sending. Details of the generation tool are available from "
+DISCLAIMER = ("> This resume was created from a database of hand-written personal resume info selected for this role "
+    "through a highly-tuned human-in-the-loop AI system and manually reviewed before sending. Details of the generation tool are available from "
     "[github.com/Macioa/resume-and-application-toolkit](https://github.com/Macioa/resume-and-application-toolkit). "
     "Data can be explored from the chat utility at [ryanwademontgomery.com](https://ryanwademontgomery.com).")
 EDU = ("bachelors", "masters", "phd")
@@ -61,7 +61,8 @@ def main():
         if e.get("resume_desc"):
             out += ["", e["resume_desc"]]
         if e.get("bullets"):
-            out += [""] + [f"- {b}" for b in e["bullets"]]
+            links = e.get("bullet_links", {})
+            out += [""] + [f"- [{b}]({links[b]})" if b in links else f"- {b}" for b in e["bullets"]]
         if e.get("skills"):
             out += ["", "Skills: " + ", ".join(e["skills"])]
     projects = load(d / "selected_projects.md")

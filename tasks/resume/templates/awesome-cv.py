@@ -7,8 +7,8 @@ from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
 from reportlab.platypus.flowables import Flowable
-from resume_md import args, parse, inline, blocks_to_flow, grid
-from scripts.employment_timeline import RailStyle, tint, with_overlap_lines
+from resume_md import args, parse, inline, source_note, blocks_to_flow, grid
+from scripts.employment_timeline import RailStyle, group_positions, tint, with_overlap_lines
 
 RED, DARK, GRAY, LIGHT = "#dc3522", "#333333", "#5d5d5d", "#999999"
 LINK = RED
@@ -24,6 +24,8 @@ st = {
     "org": ParagraphStyle("org", fontName="Helvetica-Bold", fontSize=10, leading=13, textColor=DARK),
     "where": ParagraphStyle("where", fontName="Helvetica-Oblique", fontSize=9, leading=13, textColor=RED, alignment=TA_RIGHT),
     "title": ParagraphStyle("title", fontName="Helvetica", fontSize=7.8, leading=11, textColor=GRAY),
+    "lead": ParagraphStyle("lead", fontName="Helvetica-Bold", fontSize=8.4, leading=11, textColor=RED),
+    "sub": ParagraphStyle("sub", fontName="Helvetica", fontSize=7.2, leading=10, textColor=LIGHT),
     "dates": ParagraphStyle("dates", fontName="Helvetica-Oblique", fontSize=8, leading=11, textColor=LIGHT, alignment=TA_RIGHT),
     "disc": ParagraphStyle("disc", fontName="Helvetica-Oblique", fontSize=7, leading=9, textColor=LIGHT),
 }
@@ -54,10 +56,16 @@ def main():
            ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]
 
     def h3(b):
-        title, org = b["text"].rsplit(", ", 1) if ", " in b["text"] else ("", b["text"])
         w = W - b["rail_indent"] - 6 if "rail_indent" in b else W  # 6 = frame padding the table overhangs
+        if b.get("sub"):
+            t = Table([[Paragraph(inline(b["text"].upper(), LINK), st["sub"]), Paragraph(inline(b["dates"], LINK), st["dates"])]],
+                      colWidths=[w * 0.7, w * 0.3])
+            t.setStyle(TableStyle(pad))
+            t.hAlign = "LEFT"
+            return [Spacer(1, 2), t]
+        title, org = b["text"].rsplit(", ", 1) if ", " in b["text"] else ("", b["text"])
         t = Table([[Paragraph(tint(inline(org, LINK), b), st["org"]), Paragraph(inline(b["where"], LINK), st["where"])],
-                   [Paragraph(inline(title.upper(), LINK), st["title"]), Paragraph(inline(b["dates"], LINK), st["dates"])]],
+                   [Paragraph(inline(title.upper(), LINK), st["lead" if b.get("group") else "title"]), Paragraph(inline(b["dates"], LINK), st["dates"])]],
                   colWidths=[w * 0.7, w * 0.3])
         t.setStyle(TableStyle(pad))
         if "rail_indent" in b:
@@ -74,12 +82,15 @@ def main():
     story += [Paragraph(inline(l, LINK).replace(" - ", "  |  "), st["contact"]) for l in doc["contact"]]
     for s in doc["sections"]:
         story.append(Spacer(1, 8))
-        body = with_overlap_lines(s["title"], s["blocks"], RAIL,
+        blocks = group_positions(s["blocks"]) if s["title"] == "Work Experience" else s["blocks"]
+        body = with_overlap_lines(s["title"], blocks, RAIL,
                                   lambda bs: blocks_to_flow(bs, st, LINK, h3, table, s["title"] == "Skills"))
         story.append(KeepTogether([SectionHead(s["title"], W)] + body[:1]))
         story += body[1:]
     if doc["disclaimer"]:
         story += [Spacer(1, 12), Paragraph("<br/>".join(inline(l, LINK) for l in doc["disclaimer"]), st["disc"])]
+
+    story += source_note(__file__, LINK)
 
     def footer(c, d):
         c.saveState(); c.setFont("Helvetica", 7); c.setFillColor(colors.HexColor(LIGHT))

@@ -1,7 +1,8 @@
 """Shared parser and flowables for the resume template scripts. Input is the md written by scripts/resume_final.py."""
 import argparse, os, re, sys
 from xml.sax.saxutils import escape
-from reportlab.platypus import Paragraph, ListFlowable, ListItem, Table, TableStyle
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.platypus import Paragraph, ListFlowable, ListItem, Table, TableStyle, Spacer
 
 LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
 META = re.compile(r"^(.+?) \|(?: (.*))?$")
@@ -80,10 +81,15 @@ def parse(path):
     return doc
 
 
+YEARS = re.compile(r"((?:total )?\d+(?:\.\d+)? yrs)")
+
+
 def lead_bold(s, link):
-    """Bold everything before the first number (and its opening paren)."""
+    """Bold everything before the first number (and its opening paren), and every `N yrs` / `total N yrs`."""
     m = re.match(r"^(\D*?)(\s*\(?\d.*)$", s)
-    return f"<b>{inline(m[1], link)}</b>{inline(m[2], link)}" if m and m[1] else inline(s, link)
+    head, rest = (m[1], m[2]) if m and m[1] else ("", s)
+    rest = YEARS.sub(r"<b>\1</b>", inline(rest, link))
+    return f"<b>{inline(head, link)}</b>{rest}" if head else rest
 
 
 def blocks_to_flow(blocks, st, link, h3, table, bold_lead=False):
@@ -110,3 +116,11 @@ def grid(cells, cols, width, style_cmds=()):
     t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
                            ("TOPPADDING", (0, 0), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -1), 1)] + list(style_cmds)))
     return t
+
+
+def source_note(script, link, color="#888888"):
+    """Tiny fine print naming the design source from the script's `# Design source: Name, URL` first line."""
+    head = open(script, encoding="utf-8").readline().strip()
+    name, url = head[len("# Design source: "):].rsplit(", ", 1)
+    style = ParagraphStyle("source", fontName="Helvetica", fontSize=5.5, leading=7, textColor=color)
+    return [Spacer(1, 6), Paragraph(f'Resume style template source: <a href="{url}" color="{link}">{escape(name)}</a>', style)]

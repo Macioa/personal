@@ -61,7 +61,7 @@ Sections, in order:
    - **Certifications & Clearances**: certificate, clearance
    - `other`: flag to the user.
 7. **Disclaimer** - Always end with a horizontal rule and this fine print (small, gray), verbatim:
-   > This resume was created from a database of personal resume info selected for this role and manually reviewed before sending. Details of the generation tool are available from [github.com/Macioa/resume-and-application-toolkit](https://github.com/Macioa/resume-and-application-toolkit). Data can be explored from the chat utility at [ryanwademontgomery.com](https://ryanwademontgomery.com).
+   > This resume was created from a database of hand-written personal resume info selected for this role through a highly-tuned human-in-the-loop AI system and manually reviewed before sending. Details of the generation tool are available from [github.com/Macioa/resume-and-application-toolkit](https://github.com/Macioa/resume-and-application-toolkit). Data can be explored from the chat utility at [ryanwademontgomery.com](https://ryanwademontgomery.com).
 
 8. **Key-term check** - Before saving, list every hard skill/term from Phase 1 step 1. Each one the DB backs must appear verbatim (jd spelling) in the summary, skills table, or an entry. Show the user a table: term | where it appears | or "gap (not in DB)". Then a per-entry table: entry | linked jd terms | missing from entry text (must be empty).
 
@@ -70,4 +70,5 @@ Sections, in order:
 1. Ask user whether they want a cover letter and for guidance.
 2. Draft it from best fit DB pitches plus that guidance and show it.
 3. **STOP: wait for confirmation.**
-4. Save it as PDF and MD in the resume files' existing temp subfolder, named `name-careertitle-company-cover-letter.<ext>`.
+4. End the MD with a horizontal rule and the resume disclaimer from Phase 2 as a `> ` quote, with "This resume" changed to "This cover letter".
+5. Save it as PDF and MD in the resume files' existing temp subfolder, named `name-careertitle-company-cover-letter.<ext>`.

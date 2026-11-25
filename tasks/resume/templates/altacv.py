@@ -6,8 +6,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
 from reportlab.platypus import BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether
-from resume_md import args, parse, inline, blocks_to_flow
-from scripts.employment_timeline import RailStyle, keep_count, tint, with_overlap_lines
+from resume_md import args, parse, inline, source_note, blocks_to_flow
+from scripts.employment_timeline import RailStyle, group_positions, keep_count, tint, with_overlap_lines
 
 DARK, RED, GOLD, GRAY = "#1b1b1b", "#8f0d0d", "#e6c96e", "#555555"
 LINK = RED
@@ -34,8 +34,11 @@ def section(title, blocks, width, keep=True):
            ("TOPPADDING", (0, 0), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -1), 1)]
 
     def h3(b):
+        if b.get("sub"):
+            meta = f'<font color="{GRAY}">{inline(b["text"], LINK)}</font>    {inline(b["dates"], LINK)}'
+            return [Spacer(1, 2), Paragraph(tint(meta, b) if "rail_color" in b else meta, st["meta"])]
         title, org = b["text"].rsplit(", ", 1) if ", " in b["text"] else (b["text"], "")
-        out = [Spacer(1, 5), Paragraph(inline(title, LINK), st["title"])]
+        out = [Spacer(1, 5), Paragraph(f"<b>{inline(title, LINK)}</b>" if b.get("group") else inline(title, LINK), st["title"])]
         if org:
             out.append(Paragraph(tint(inline(org, LINK), b), st["org"]))
         meta = "    ".join(x for x in (b["dates"], b["where"]) if x)
@@ -50,6 +53,8 @@ def section(title, blocks, width, keep=True):
                                      ("LINEBELOW", (0, 0), (-1, -2), 0.3, colors.HexColor("#dddddd"))]))
         return [Spacer(1, 2), t]
 
+    if title == "Work Experience":
+        blocks = group_positions(blocks)
     body = with_overlap_lines(title, blocks, RAIL, lambda bs: blocks_to_flow(bs, st, LINK, h3, table, title == "Skills"))
     head = [Paragraph(inline(title.upper(), LINK), st["sec"]),
             HRFlowable(width="100%", thickness=1.6, color=colors.HexColor(GOLD), spaceBefore=1, spaceAfter=3)]
@@ -77,6 +82,8 @@ def main():
     if doc["disclaimer"]:
         left += [Spacer(1, 10), HRFlowable(width="100%", thickness=0.4, color=colors.HexColor(GOLD), spaceAfter=3),
                  Paragraph("<br/>".join(inline(l, LINK) for l in doc["disclaimer"]), st["disc"])]
+
+    left += source_note(__file__, LINK)
 
     def draw_right(c, top):
         if right:

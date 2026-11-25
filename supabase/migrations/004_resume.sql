@@ -38,7 +38,8 @@ CREATE TABLE public.employment_resumedesc_bullets (
   slug text NOT NULL,
   employment_title_id uuid NOT NULL REFERENCES public.employment_titles (id) ON DELETE CASCADE,
   text text NOT NULL,
-  priority double precision
+  priority double precision,
+  evidence_link text
 );
 
 CREATE TABLE public.employer_portals (
@@ -148,6 +149,8 @@ COMMENT ON COLUMN public.employment_resumedesc_bullets.slug IS
   '1-4 word summary of the bullet.';
 COMMENT ON COLUMN public.employment_resumedesc_bullets.priority IS
   'Sort order, higher first. Nullable.';
+COMMENT ON COLUMN public.employment_resumedesc_bullets.evidence_link IS
+  'URL backing the claim (e.g. LinkedIn recommendation). When set, the resume renders the bullet as a hyperlink to it.';
 COMMENT ON COLUMN public.employer_portals.w2_or_tax IS
   'True if the portal holds W-2s, pay stubs or other tax documents.';
 COMMENT ON COLUMN public.employer_portals.contains_contracts IS

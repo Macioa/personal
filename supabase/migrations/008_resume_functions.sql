@@ -420,7 +420,10 @@ CREATE OR REPLACE VIEW public.resume WITH (security_invoker = true) AS
                  LIMIT 1), 'bullets', ( SELECT jsonb_agg(b.text ORDER BY t.start_year DESC NULLS LAST, t.start_month DESC NULLS LAST, b.priority DESC NULLS LAST, b.id) AS jsonb_agg
                    FROM employment_titles t
                      JOIN employment_resumedesc_bullets b ON b.employment_title_id = t.id
-                  WHERE t.employer_id = e.id), 'skills', ( SELECT jsonb_agg(x.name ORDER BY x.sort_rank) AS jsonb_agg
+                  WHERE t.employer_id = e.id), 'bullet_links', ( SELECT jsonb_object_agg(b.text, b.evidence_link) AS jsonb_object_agg
+                   FROM employment_titles t
+                     JOIN employment_resumedesc_bullets b ON b.employment_title_id = t.id
+                  WHERE t.employer_id = e.id AND b.evidence_link IS NOT NULL), 'skills', ( SELECT jsonb_agg(x.name ORDER BY x.sort_rank) AS jsonb_agg
                    FROM ( SELECT DISTINCT sk.name,
                             sk.sort_rank
                            FROM skill_links l

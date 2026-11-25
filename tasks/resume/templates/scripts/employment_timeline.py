@@ -138,6 +138,39 @@ class _Marker(Flowable):
         (self.rails.finish if self.final else self.rails.mark)(self.canv, self._frame, y)
 
 
+def group_positions(blocks):
+    """Consecutive positions at one company: the latest keeps the full heading, earlier ones drop the company name
+    and are marked `sub`, and all their Skills lines merge into one listing after the last position."""
+    org = lambda b: b["text"].rsplit(", ", 1)[1] if b["t"] == "h3" and ", " in b["text"] else None
+    is_skills = lambda b: b["t"] == "p" and len(b["lines"]) == 1 and b["lines"][0].startswith("Skills: ")
+    jobs = []
+    for b in blocks:
+        if b["t"] == "h3" or not jobs:
+            jobs.append([b])
+        else:
+            jobs[-1].append(b)
+    out, i = [], 0
+    while i < len(jobs):
+        j = i + 1
+        while j < len(jobs) and org(jobs[i][0]) and org(jobs[j][0]) == org(jobs[i][0]):
+            j += 1
+        run = jobs[i:j]
+        if len(run) > 1:
+            skills = []
+            for k, job in enumerate(run):
+                for b in job:
+                    if is_skills(b):
+                        skills += [s for s in b["lines"][0][8:].split(", ") if s not in skills]
+                body = [b for b in job[1:] if not is_skills(b)]
+                head = dict(job[0], group=True) if k == 0 else dict(job[0], text=job[0]["text"].rsplit(", ", 1)[0], sub=True)
+                out += [head] + body
+            out.append({"t": "p", "lines": ["Skills: " + ", ".join(skills)]})
+        else:
+            out += run[0]
+        i = j
+    return out
+
+
 def tint(markup, block):
     """Color a job heading to match its line."""
     color = block.get("rail_color")
@@ -179,7 +212,13 @@ def with_overlap_lines(title, blocks, style, render):
         return render(blocks)
     prefix, jobs = [], []
     for b in blocks:
-        if b["t"] == "h3":
+        if b["t"] == "h3" and b.get("sub") and jobs:
+            # Earlier position at the same company: widen the company's line to cover it.
+            jobs[-1]["blocks"].append(b)
+            s, t = jobs[-1]["span"], _span(b["dates"])
+            if s and t:
+                jobs[-1]["span"] = (min(s[0], t[0]), max(s[1], t[1]), min(s[2], t[2]), max(s[3], t[3]))
+        elif b["t"] == "h3":
             jobs.append({"blocks": [b], "span": _span(b["dates"])})
         elif jobs:
             jobs[-1]["blocks"].append(b)

@@ -6,8 +6,8 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, KeepTogether
-from resume_md import args, parse, inline, blocks_to_flow, grid
-from scripts.employment_timeline import RailStyle, tint, with_overlap_lines
+from resume_md import args, parse, inline, source_note, blocks_to_flow, grid
+from scripts.employment_timeline import RailStyle, group_positions, tint, with_overlap_lines
 
 LINK = "#1a0dab"
 OVERLAP_COLORS = (LINK, "#000000", "#7a7a7a", "#2e6f5e", "#8a5a2b")
@@ -21,6 +21,7 @@ st = {
     "bullet": ParagraphStyle("bullet", fontName="Times-Roman", fontSize=9.8, leading=12),
     "h3l": ParagraphStyle("h3l", fontName="Times-Bold", fontSize=10.5, leading=13),
     "h3r": ParagraphStyle("h3r", fontName="Times-Roman", fontSize=10, leading=13, alignment=TA_RIGHT),
+    "sub": ParagraphStyle("sub", fontName="Times-Italic", fontSize=9.8, leading=12, textColor=colors.HexColor("#444444")),
     "dates": ParagraphStyle("dates", fontName="Times-Italic", fontSize=9.5, leading=12, alignment=TA_RIGHT),
     "disc": ParagraphStyle("disc", fontName="Times-Italic", fontSize=7.5, leading=9.5, textColor=colors.HexColor("#555555")),
 }
@@ -35,6 +36,12 @@ def main():
 
     def h3(b):
         w = W - b["rail_indent"] - 6 if "rail_indent" in b else W  # 6 = frame padding the table overhangs
+        if b.get("sub"):
+            t = Table([[Paragraph("&nbsp;&nbsp;&nbsp;– " + inline(b["text"], LINK), st["sub"]), Paragraph(inline(b["dates"], LINK), st["dates"])]],
+                      colWidths=[w * 0.72, w * 0.28])
+            t.setStyle(TableStyle(pad))
+            t.hAlign = "LEFT"
+            return [Spacer(1, 1), t]
         t = Table([[Paragraph("• " + tint(inline(b["text"], LINK), b), st["h3l"]), Paragraph(inline(b["where"], LINK), st["h3r"])],
                    ["", Paragraph(inline(b["dates"], LINK), st["dates"])]], colWidths=[w * 0.72, w * 0.28])
         t.setStyle(TableStyle(pad))
@@ -54,11 +61,13 @@ def main():
     for s in doc["sections"]:
         story.append(KeepTogether([Paragraph(inline(s["title"].upper(), LINK), st["sec"]),
                                    HRFlowable(width="100%", thickness=0.6, color=colors.black, spaceBefore=1, spaceAfter=3)]))
-        story += with_overlap_lines(s["title"], s["blocks"], RAIL,
+        blocks = group_positions(s["blocks"]) if s["title"] == "Work Experience" else s["blocks"]
+        story += with_overlap_lines(s["title"], blocks, RAIL,
                                     lambda bs: blocks_to_flow(bs, st, LINK, h3, table, s["title"] == "Skills"))
     if doc["disclaimer"]:
         story += [Spacer(1, 10), HRFlowable(width="100%", thickness=0.4, color=colors.grey, spaceAfter=4),
                   Paragraph("<br/>".join(inline(l, LINK) for l in doc["disclaimer"]), st["disc"])]
+    story += source_note(__file__, LINK)
     SimpleDocTemplate(a.output_abs_path, pagesize=letter, leftMargin=M, rightMargin=M, topMargin=M, bottomMargin=M,
                       title=doc["name"], author=doc["name"]).build(story)
 

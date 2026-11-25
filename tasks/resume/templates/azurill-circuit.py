@@ -10,8 +10,8 @@ from reportlab.lib.utils import ImageReader
 from reportlab.lib import colors
 from reportlab.platypus import BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer, Table, TableStyle, HRFlowable, Indenter, KeepTogether
 from reportlab.platypus.flowables import Flowable
-from resume_md import args, parse, inline, blocks_to_flow, lead_bold
-from scripts.employment_timeline import RailStyle, keep_count, tint, with_overlap_lines
+from resume_md import args, parse, inline, source_note, blocks_to_flow, lead_bold
+from scripts.employment_timeline import RailStyle, group_positions, keep_count, tint, with_overlap_lines
 
 TEAL, MINT, CORAL, DARK, GRAY = "#0f6e56", "#5dcaa5", "#f0997b", "#1f2328", "#4b5158"
 LINK = TEAL
@@ -36,6 +36,9 @@ st = {
     "side": ParagraphStyle("side", fontName="Helvetica", fontSize=8.4, leading=10.8, textColor=DARK, spaceAfter=4),
     "org": ParagraphStyle("org", fontName="Helvetica-Bold", fontSize=9.4, leading=12, textColor=DARK),
     "title": ParagraphStyle("title", fontName="Helvetica", fontSize=8.8, leading=11.4, textColor=DARK),
+    "lead": ParagraphStyle("lead", fontName="Helvetica-Bold", fontSize=9.2, leading=11.8, textColor=TEAL),
+    "sub": ParagraphStyle("sub", fontName="Helvetica", fontSize=8, leading=10.4, textColor=GRAY),
+    "subr": ParagraphStyle("subr", fontName="Helvetica", fontSize=7.8, leading=10.4, textColor=GRAY, alignment=TA_RIGHT),
     "right": ParagraphStyle("right", fontName="Helvetica", fontSize=8.6, leading=11.4, textColor=DARK, alignment=TA_RIGHT),
     "disc": ParagraphStyle("disc", fontName="Helvetica-Oblique", fontSize=6.8, leading=8.6, textColor=GRAY),
 }
@@ -157,6 +160,15 @@ def project_blocks(blocks):
 
 def main_section(title, blocks, width, spine):
     def h3(b):
+        if b.get("sub"):
+            w = width - b.get("rail_indent", 0)
+            t = Table([[Paragraph(tint(inline(b["text"], LINK), b), st["sub"]), Paragraph(inline(b["dates"], LINK), st["subr"])]],
+                      colWidths=[w * 0.68, w * 0.32])
+            t.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                                   ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]))
+            t.hAlign = "LEFT"
+            t.keepWithNext = True
+            return [Spacer(1, 4), t]
         if b.get("project"):
             head, sub = b["text"], ""
         else:
@@ -164,7 +176,7 @@ def main_section(title, blocks, width, spine):
         w = width - b.get("rail_indent", 0)
         rows = [[Paragraph(tint(inline(head, LINK), b), st["org"]), Paragraph(inline(b["where"] if sub else b["dates"], LINK), st["right"])]]
         if sub:
-            rows.append([Paragraph(inline(sub, LINK), st["title"]), Paragraph(inline(b["dates"], LINK), st["right"])])
+            rows.append([Paragraph(inline(sub, LINK), st["lead" if b.get("group") else "title"]), Paragraph(inline(b["dates"], LINK), st["right"])])
         t = Table(rows, colWidths=[w * 0.68, w * 0.32])
         t.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
                                ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]))
@@ -176,6 +188,8 @@ def main_section(title, blocks, width, spine):
 
     if title == "Projects":
         blocks = project_blocks(blocks)
+    if title == "Work Experience":
+        blocks = group_positions(blocks)
     body = with_overlap_lines(title, blocks, RAIL, lambda bs: blocks_to_flow(bs, st, LINK, h3, lambda b: [], False))
     if title == "Summary":
         body = [SpineMark(spine)] + body
@@ -221,6 +235,8 @@ def main():
     if doc["disclaimer"]:
         main_flow += [Spacer(1, 10), Indenter(left=-SPINE_W), HRFlowable(width="100%", thickness=0.4, color=colors.HexColor(MINT), spaceAfter=3),
                       Paragraph("<br/>".join(inline(l, LINK) for l in doc["disclaimer"]), st["disc"]), Indenter(left=SPINE_W)]
+
+    main_flow += source_note(__file__, LINK)
 
     def draw_side(c, y):
         if side:
