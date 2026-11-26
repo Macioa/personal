@@ -96,7 +96,7 @@ AS $$
         SELECT string_agg(' + Other ' || (g.grp->>'name') || ' ('
                  || (SELECT string_agg(e.ex, ', ' ORDER BY e.ex_no)
                      FROM jsonb_array_elements_text(g.grp->'examples') WITH ORDINALITY e(ex, ex_no))
-                 || ', total ' || (g.grp->>'yrs') || ' yrs)', '' ORDER BY g.grp_no)
+                 || ', total ' || greatest(coalesce(r.yrs, 0), (g.grp->>'yrs')::integer) || ' yrs)', '' ORDER BY g.grp_no)
         FROM jsonb_array_elements(r.groups) WITH ORDINALITY g(grp, grp_no)), '')))
   FROM results r
   ORDER BY r.term_no;

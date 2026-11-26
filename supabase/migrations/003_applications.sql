@@ -409,3 +409,16 @@ COMMENT ON COLUMN public.job_references.private IS
   'True marks the reference as not to be shared or used.';
 COMMENT ON COLUMN public.job_references.relation IS
   'How the reference worked with me (free text).';
+
+CREATE TABLE public.recommendations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text NOT NULL UNIQUE,
+  date date,
+  text text NOT NULL,
+  source text,
+  reference_id uuid REFERENCES public.job_references (id) ON DELETE SET NULL
+);
+COMMENT ON TABLE public.recommendations IS 'Recommendations written about me, verbatim.';
+COMMENT ON COLUMN public.recommendations.text IS 'Verbatim recommendation text. Do not edit.';
+COMMENT ON COLUMN public.recommendations.source IS 'Where the text was found (e.g. SMS, LinkedIn, email).';
+COMMENT ON COLUMN public.recommendations.reference_id IS 'The reference who wrote it.';

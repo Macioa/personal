@@ -48,6 +48,9 @@ CREATE INDEX employer_employer_portals_employer_portal_id_idx
 CREATE INDEX employer_job_references_job_reference_id_idx
   ON public.employer_job_references (job_reference_id);
 
+CREATE INDEX recommendations_reference_id_idx
+  ON public.recommendations (reference_id);
+
 CREATE INDEX skill_links_skill_id_idx
   ON public.skill_links (skill_id);
 
